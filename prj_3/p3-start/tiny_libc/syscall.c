@@ -1,6 +1,38 @@
 #include <sys/syscall.h>
 #include <stdint.h>
 
+pid_t sys_spawn(task_info_t *info, void* arg, spawn_mode_t mode){
+    return invoke_syscall(SYSCALL_SPAWN, (uintptr_t)info, (uintptr_t)arg, mode);
+}
+
+void sys_exit(void){
+    invoke_syscall(SYSCALL_EXIT, IGNORE, IGNORE, IGNORE);
+}
+
+int sys_kill(pid_t pid){
+    return invoke_syscall(SYSCALL_KILL, pid, IGNORE, IGNORE);
+}
+
+int sys_waitpid(pid_t pid){
+    return invoke_syscall(SYSCALL_WAITPID, pid, IGNORE, IGNORE);
+}
+
+void sys_process_show(void){
+    invoke_syscall(SYSCALL_PS, IGNORE, IGNORE, IGNORE);
+}
+
+void sys_screen_clear(void){
+    invoke_syscall(SYSCALL_SCREEN_CLEAR, IGNORE, IGNORE, IGNORE);
+}
+
+pid_t sys_getpid(){
+    return invoke_syscall(SYSCALL_GETPID, IGNORE, IGNORE, IGNORE);
+}
+
+int sys_get_char(){
+    return invoke_syscall(SYSCALL_GET_CHAR, IGNORE, IGNORE, IGNORE);
+}
+
 void sys_yield()
 {
     invoke_syscall(SYSCALL_YIELD, IGNORE, IGNORE, IGNORE);

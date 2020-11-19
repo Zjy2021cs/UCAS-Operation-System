@@ -1,7 +1,7 @@
 #include <asm.h>
 #include <csr.h>
 
-//task 3：保存上文
+//保存上文
 .macro SAVE_CONTEXT
   .local _restore_kernel_tpsp
   .local _save_context
@@ -75,7 +75,7 @@ _save_context:
   sd   t0 ,OFFSET_REG_TP      (sp)
 .endm
 
-//task 3：恢复下文
+//恢复下文
 .macro RESTORE_CONTEXT
   /* TODO: Restore all registers and sepc,sstatus */
   //sp have been set in switch_to

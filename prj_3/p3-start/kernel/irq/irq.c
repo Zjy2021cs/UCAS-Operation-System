@@ -10,9 +10,6 @@
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
 uintptr_t riscv_dtb;
-uint64_t sched_begin_tick;
-uint64_t sched_end_tick;
-uint64_t sched_ticks;
 
 void reset_irq_timer()
 {
@@ -21,21 +18,14 @@ void reset_irq_timer()
     screen_reflush();
     timer_check();
     uint64_t stime_value;
-    stime_value = get_ticks() + time_base/100;
+    stime_value = get_ticks() + time_base/200;
     sbi_set_timer(stime_value);
     // note: use sbi_set_timer
     // remember to reschedule
-    sched_begin_tick = get_ticks();
     do_scheduler();
-    sched_end_tick = get_ticks();
-    sched_ticks = sched_end_tick-sched_begin_tick;
-    if(sched_end_tick<1000000000){
-        vt100_move_cursor(1, 9);
-        printk("do_scheduler costs (%ld) ticks.\n\r",sched_ticks);
-    }
 }
 
-//task 3：根据scause确定例外种类，调用不同的例外处理函数进行处理 
+//P2: task 3根据scause确定例外种类，调用不同的例外处理函数进行处理 
 void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
     // TODO interrupt handler.
@@ -52,7 +42,7 @@ void handle_int(regs_context_t *regs, uint64_t interrupt, uint64_t cause)
     reset_irq_timer();
 }
 
-//task 4
+//P2: task 4
 void init_exception()
 {
     /* TODO: initialize irq_table and exc_table */
@@ -73,6 +63,7 @@ void init_exception()
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
+    // Output more debug information
     char* reg_name[] = {
         "zero "," ra  "," sp  "," gp  "," tp  ",
         " t0  "," t1  "," t2  ","s0/fp"," s1  ",
@@ -90,6 +81,23 @@ void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)
     }
     printk("sstatus: 0x%lx sbadaddr: 0x%lx scause: %lx\n\r",
            regs->sstatus, regs->sbadaddr, regs->scause);
+    printk("stval: 0x%lx cause: %lx\n\r",
+           stval, cause);
     printk("sepc: 0x%lx\n\r", regs->sepc);
+    // printk("mhartid: 0x%lx\n\r", get_current_cpu_id());
+
+    uintptr_t fp = regs->regs[8], sp = regs->regs[2];
+    printk("[Backtrace]\n\r");
+    printk("  addr: %lx sp: %lx fp: %lx\n\r", regs->regs[1] - 4, sp, fp);
+    // while (fp < USER_STACK_ADDR && fp > USER_STACK_ADDR - PAGE_SIZE) {
+    while (fp > 0x10000) {
+        uintptr_t prev_ra = *(uintptr_t*)(fp-8);
+        uintptr_t prev_fp = *(uintptr_t*)(fp-16);
+
+        printk("  addr: %lx sp: %lx fp: %lx\n\r", prev_ra - 4, fp, prev_fp);
+
+        fp = prev_fp;
+    }
+
     assert(0);
 }

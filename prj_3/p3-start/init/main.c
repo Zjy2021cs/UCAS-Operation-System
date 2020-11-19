@@ -42,10 +42,15 @@
 extern void ret_from_exception();
 extern void printk_task1(void);
 extern void __global_pointer$();
+pcb_t pcb[NUM_MAX_TASK];
+/* global process id */ //pid=0的进程是内核本身，不算在pcb数组中，因此pid编号从1开始
+pid_t process_id = 1;
+/* global used process num */
+int process_num = 0;
 mutex_lock_t binsem[NUM_MAX_SEM];
 
-static void init_pcb_stack(
-    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point,
+void init_pcb_stack(
+    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, void* arg,
     pcb_t *pcb)
 {
     regs_context_t *pt_regs = (regs_context_t *)(kernel_stack - sizeof(regs_context_t));
@@ -56,10 +61,11 @@ static void init_pcb_stack(
      * set sp to simulate return from switch_to
      * TODO: you should prepare a stack, and push some values to simulate a pcb context.
      */
-    pt_regs->regs[2] = user_stack;  //sp
-    pt_regs->regs[3] = __global_pointer$;                                                   //gp
-    pt_regs->regs[1] = entry_point;                                                         //ra
-    pt_regs->sepc = entry_point;      
+    pt_regs->regs[2]  = (reg_t)user_stack;                                                   //sp
+    pt_regs->regs[3]  = (reg_t)__global_pointer$;                                            //gp
+    pt_regs->regs[1]  = (reg_t)entry_point;                                                  //ra
+    pt_regs->regs[10] = (reg_t)arg;                                                          //a0
+    pt_regs->sepc = (reg_t)entry_point;      
     pt_regs->sstatus = SR_SPIE; //user_process:SPP==0;kernel_process:SPP=1 ??? 
 
     switchto_context_t *sw_regs = (switchto_context_t *)(kernel_stack - sizeof(regs_context_t) - sizeof(switchto_context_t));
@@ -67,93 +73,70 @@ static void init_pcb_stack(
     sw_regs->regs[1] = kernel_stack - sizeof(regs_context_t) - sizeof(switchto_context_t);  //sp
 }
 
-//task 1
+/* initialize all of your pcb and add them into ready_queue
+ * TODO:初始化每一个pcb中的内容，并将进程放入就绪队列中
+ */ 
 static void init_pcb()
 {
-     /* initialize all of your pcb and add them into ready_queue
-     * TODO:初始化每一个pcb中的内容，并将进程放入就绪队列中
-     */  
-    pcb_t pcb[NUM_MAX_TASK];
-    
-    //pid=0的进程是内核本身，不算在pcb数组中，因此pid编号从1开始
-    pid_t process_id = 1;
-    int i;
-    for ( i = 0; i < num_timer_tasks; i++,process_id++)
-    {
-        //初始化栈内容
-        pcb[i].kernel_sp = allocPage(1) + PAGE_SIZE; 
-        pcb[i].user_sp = allocPage(1) + PAGE_SIZE;
-        init_pcb_stack(pcb[i].kernel_sp, pcb[i].user_sp, timer_tasks[i]->entry_point, &pcb[i]);
-        pcb[i].kernel_sp = pcb[i].kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
-        //初始化pid,type,status,cursor
-        pcb[i].pid = process_id;
-        pcb[i].status = TASK_READY;
-        pcb[i].type = timer_tasks[i]->type;
-        pcb[i].cursor_x = 1;
-        pcb[i].cursor_y = 1;
-        pcb[i].list.priority = timer_tasks[i]->priority;
-        //将pcb入就绪队列（拉链赋值list）
-            list_add(&pcb[i].list, &ready_queue);
-    }
-    for (; i < num_timer_tasks+num_sched2_tasks; i++,process_id++)
-    {
-        //初始化栈内容
-        pcb[i].kernel_sp = allocPage(1) + PAGE_SIZE; 
-        pcb[i].user_sp = allocPage(1) + PAGE_SIZE;
-        init_pcb_stack(pcb[i].kernel_sp, pcb[i].user_sp, sched2_tasks[i-num_timer_tasks]->entry_point, &pcb[i]);
-        pcb[i].kernel_sp = pcb[i].kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
-        //初始化pid,type,status,cursor
-        pcb[i].pid = process_id;
-        pcb[i].status = TASK_READY;
-        pcb[i].type = sched2_tasks[i-num_timer_tasks]->type;
-        pcb[i].cursor_x = 0;
-        pcb[i].cursor_y = 0;
-        pcb[i].list.priority = sched2_tasks[i-num_timer_tasks]->priority;
-        //将pcb入就绪队列（拉链赋值list）
-        list_add(&pcb[i].list, &ready_queue);
-    }
-    for (; i < num_timer_tasks+num_sched2_tasks+num_lock2_tasks; i++,process_id++)
-    {
-        //初始化栈内容
-        pcb[i].kernel_sp = allocPage(1) + PAGE_SIZE; 
-        pcb[i].user_sp = allocPage(1) + PAGE_SIZE;
-        init_pcb_stack(pcb[i].kernel_sp, pcb[i].user_sp, lock2_tasks[i-num_timer_tasks-num_sched2_tasks]->entry_point, &pcb[i]);
-        pcb[i].kernel_sp = pcb[i].kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
-        //初始化pid,type,status,cursor
-        pcb[i].pid = process_id;
-        pcb[i].status = TASK_READY;
-        pcb[i].type = lock2_tasks[i-num_timer_tasks-num_sched2_tasks]->type;
-        pcb[i].cursor_x = 0;
-        pcb[i].cursor_y = 0;
-        pcb[i].list.priority = lock2_tasks[i-num_timer_tasks-num_sched2_tasks]->priority;
-        //将pcb入就绪队列（拉链赋值list）
-        list_add(&pcb[i].list, &ready_queue);
-    }
+    //only init shell to spawn other tasks
+    //初始化栈内容
+    pcb[0].kernel_stack_base = allocPage(1) + PAGE_SIZE;
+    pcb[0].user_stack_base = allocPage(1) + PAGE_SIZE;
+    pcb[0].kernel_sp =  pcb[0].kernel_stack_base;
+    pcb[0].user_sp = pcb[0].user_stack_base;
+    init_pcb_stack(pcb[0].kernel_sp, pcb[0].user_sp, (ptr_t)&test_shell, NULL, &pcb[0]);
+    pcb[0].kernel_sp = pcb[0].kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
+    //初始化pid,type,status,cursor
+    pcb[0].pid = process_id++;
+    pcb[0].type = USER_PROCESS; 
+    pcb[0].status = TASK_READY;
+    pcb[0].mode = AUTO_CLEANUP_ON_EXIT;
+    pcb[0].cursor_x = 1;
+    pcb[0].cursor_y = 1;
+    pcb[0].lock_num = 0;
+    //将pcb入就绪队列（拉链赋值list）
+    list_add(&pcb[0].list, &ready_queue);
+    init_list_head(&pcb[0].wait_list);
+    process_num++;
 
     /* remember to initialize `current_running`
      * TODO:*/
     current_running = &pid0_pcb;
 }
 
-//task 3
 static void init_syscall(void)
 {
     // initialize system call table.
     int i;
 	for(i = 0; i < NUM_SYSCALLS; i++)
-		syscall[i] = &handle_other;
-    syscall[SYSCALL_YIELD]        = &do_scheduler;
-    syscall[SYSCALL_SLEEP]        = &do_sleep;
-    syscall[SYSCALL_BINSEMGET]    = &do_binsemget;
-    syscall[SYSCALL_BINSEMOP]     = &do_binsemop;
-    syscall[SYSCALL_FUTEX_WAIT]   = &futex_wait;
-    syscall[SYSCALL_FUTEX_WAKEUP] = &futex_wakeup;
-    syscall[SYSCALL_WRITE]        = &screen_write;
-    syscall[SYSCALL_READ]         = &sbi_console_getchar;
-    syscall[SYSCALL_CURSOR]       = &screen_move_cursor;
-    syscall[SYSCALL_REFLUSH]      = &screen_reflush;
-    syscall[SYSCALL_GET_TIMEBASE] = &get_timer;         
-    syscall[SYSCALL_GET_TICK]     = &get_ticks;
+		syscall[i] = (long int (*)())&handle_other;
+    syscall[SYSCALL_SPAWN]          = (long int (*)())&do_spawn;
+    syscall[SYSCALL_EXIT]           = (long int (*)())&do_exit;
+    syscall[SYSCALL_SLEEP]          = (long int (*)())&do_sleep;
+    syscall[SYSCALL_KILL]           = (long int (*)())&do_kill;
+    syscall[SYSCALL_WAITPID]        = (long int (*)())&do_waitpid;
+    syscall[SYSCALL_PS]             = (long int (*)())&do_process_show;
+    syscall[SYSCALL_GETPID]         = (long int (*)())&do_getpid;
+    syscall[SYSCALL_YIELD]          = (long int (*)())&do_scheduler;
+
+    syscall[SYSCALL_FUTEX_WAIT]     = (long int (*)())&futex_wait;
+    syscall[SYSCALL_FUTEX_WAKEUP]   = (long int (*)())&futex_wakeup;
+
+    syscall[SYSCALL_WRITE]          = (long int (*)())&screen_write;
+    syscall[SYSCALL_READ]           = (long int (*)())&sbi_console_getchar; 
+    syscall[SYSCALL_CURSOR]         = (long int (*)())&screen_move_cursor;
+    syscall[SYSCALL_REFLUSH]        = (long int (*)())&screen_reflush;
+    /*syscall[SYSCALL_SERIAL_READ]    = &;
+    syscall[SYSCALL_SERIAL_WRITE]   = &;
+    syscall[SYSCALL_READ_SHELL_BUFF]= &;*/
+    syscall[SYSCALL_SCREEN_CLEAR]   = (long int (*)())&screen_clear;
+
+    syscall[SYSCALL_GET_TIMEBASE]   = (long int (*)())&get_timer;         
+    syscall[SYSCALL_GET_TICK]       = (long int (*)())&get_ticks;
+    syscall[SYSCALL_GET_CHAR]       = (long int (*)())&sbi_console_getchar;
+     
+    syscall[SYSCALL_BINSEMGET]      = (long int (*)())&do_binsemget;
+    syscall[SYSCALL_BINSEMOP]       = (long int (*)())&do_binsemop;
 }
 
 // jump from bootloader.

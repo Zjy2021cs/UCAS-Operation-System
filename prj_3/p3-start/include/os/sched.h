@@ -61,8 +61,14 @@ typedef enum {
     TASK_BLOCKED,
     TASK_RUNNING,
     TASK_READY,
+    TASK_ZOMBIE,
     TASK_EXITED,
 } task_status_t;
+
+typedef enum {
+    ENTER_ZOMBIE_ON_EXIT,
+    AUTO_CLEANUP_ON_EXIT,
+} spawn_mode_t;
 
 typedef enum {
     KERNEL_PROCESS,
@@ -71,7 +77,7 @@ typedef enum {
     USER_THREAD,
 } task_type_t;
 
-/* Process Control Block */ 
+/* Process Control Block */
 typedef struct pcb
 {
     /* register context */
@@ -79,13 +85,18 @@ typedef struct pcb
     // 栈指针(寄存器保存在栈里)
     reg_t kernel_sp;
     reg_t user_sp;
-    
-    // count the number of disable_preempt（不能抢占）（part1 非抢占暂时不用）
+
+    // count the number of disable_preempt
     // enable_preempt enables CSR_SIE only when preempt_count == 0
     reg_t preempt_count;
 
-    /* previous, next pointer and task priority */
+    //for recycle the space when killed/exited
+    ptr_t kernel_stack_base;
+    ptr_t user_stack_base;
+
+    /* previous, next pointer */
     list_node_t list;
+    list_head wait_list;
 
     /* process id */
     pid_t pid;
@@ -93,42 +104,64 @@ typedef struct pcb
     /* kernel/user thread/process */
     task_type_t type;
 
-    /* BLOCK | READY | RUNNING */
+    /* BLOCK | READY | RUNNING | ZOMBIE */
     task_status_t status;
+    spawn_mode_t mode;
 
     /* cursor position */
     int cursor_x;
     int cursor_y;
     /* timer for sleep */
     timer_t timer;
+    /* locks pcb acquired */
+    int lock_num;
+    mutex_lock_t *locks[10];
 } pcb_t;
 
 /* task information, used to init PCB */
 typedef struct task_info
 {
     ptr_t entry_point;
-    task_type_t type;
-    int   priority;
+    task_type_t type; 
 } task_info_t;
 
-//extern声明全局变量
 /* ready queue to run */
 extern list_head ready_queue;
 
 /* current running task PCB */
 extern pcb_t * volatile current_running;
+// extern pcb_t * volatile current_running[NR_CPUS];
 extern pid_t process_id;
 
 extern pcb_t pcb[NUM_MAX_TASK];
-extern pcb_t pid0_pcb;             
+// extern pcb_t kernel_pcb[NR_CPUS];
+extern pcb_t pid0_pcb;
 extern const ptr_t pid0_stack;
 
-extern void switch_to(pcb_t *prev, pcb_t *next);
-void do_scheduler(void);
-void do_sleep(uint32_t);
+extern void init_pcb_stack(
+    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, void* arg, pcb_t *pcb);
 
-void do_block(list_node_t *, list_head *queue);
-void do_unblock(list_node_t *);
+extern void switch_to(pcb_t *prev, pcb_t *next);
+extern void do_scheduler(void);
+
+extern void do_block(list_node_t *, list_head *queue);
+extern void do_unblock(list_node_t *);
+
+//P3-task1
+/* list_head of free_recycle space */
+extern ptr_t recycle_queue;         
+/* exit_queue to reuse pcb */
+extern list_head exit_queue;
+// extern pcb[num] if can reuse
+extern int process_num;
+extern pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode);
+extern void do_exit(void);
+extern void do_sleep(uint32_t);
+
+extern int do_kill(pid_t pid);
+extern int do_waitpid(pid_t pid);
+extern void do_process_show();
+extern pid_t do_getpid();
 
 //P2-task4
 #define NUM_MAX_SEM  16

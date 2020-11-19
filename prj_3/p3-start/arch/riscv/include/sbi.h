@@ -66,7 +66,7 @@ static inline void sbi_console_putchar(int ch)
 
 static inline int sbi_console_getchar(void)
 {
-    return SBI_CALL_0(SBI_CONSOLE_GETCHAR);
+    return SBI_CALL_0(SBI_CONSOLE_GETCHAR); 
 }
 
 static inline void sbi_set_timer(uint64_t stime_value)

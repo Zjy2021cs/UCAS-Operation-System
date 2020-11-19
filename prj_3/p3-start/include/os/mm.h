@@ -31,7 +31,7 @@
 
 #define MEM_SIZE 32
 #define PAGE_SIZE 4096 // 4K
-#define INIT_KERNEL_STACK 0x50500000
+#define INIT_KERNEL_STACK 0x50500000lu
 #define FREEMEM (INIT_KERNEL_STACK+PAGE_SIZE)
 
 /* Rounding; only works for n = power of two */
@@ -41,6 +41,7 @@
 extern ptr_t memCurr;
 
 extern ptr_t allocPage(int numPage);
+extern void freePage(ptr_t baseAddr, int numPage);
 extern void* kmalloc(size_t size);
 
 #endif /* MM_H */

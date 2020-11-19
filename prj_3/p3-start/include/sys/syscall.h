@@ -30,11 +30,16 @@
 
 #include <os/syscall_number.h>
 #include <stdint.h>
- 
+#include <os.h>
+
 extern long invoke_syscall(long, long, long, long);
 
+pid_t sys_spawn(task_info_t *info, void* arg, spawn_mode_t mode);
+void sys_exit(void); 
+void sys_sleep(uint32_t time);
+int sys_kill(pid_t pid);
+int sys_waitpid(pid_t pid);
 void sys_yield();
-void sys_sleep(uint32_t);
 
 void sys_futex_wait(volatile uint64_t *val_addr, uint64_t val);
 void sys_futex_wakeup(volatile uint64_t *val_addr, int num_wakeup);
@@ -45,5 +50,10 @@ void sys_reflush();
 
 long sys_get_timebase();
 long sys_get_tick();
+
+void sys_process_show(void);
+void sys_screen_clear(void);
+pid_t sys_getpid();
+int sys_get_char();
 
 #endif

@@ -36,10 +36,10 @@
 
 typedef atomic_int mthread_spinlock_t;
 
-/* A stupid implementation, this will be slow. */
 typedef struct mthread_mutex
 {
-    atomic_long data;
+    // TODO:
+    int lock_id;
 } mthread_mutex_t;
 
 int mthread_spin_init(mthread_spinlock_t *lock);
@@ -53,5 +53,35 @@ int mthread_mutex_destroy(mthread_mutex_t *lock);
 int mthread_mutex_trylock(mthread_mutex_t *lock);
 int mthread_mutex_lock(mthread_mutex_t *lock);
 int mthread_mutex_unlock(mthread_mutex_t *lock);
+
+typedef struct mthread_barrier
+{
+    // TODO:
+} mthread_barrier_t;
+
+int mthread_barrier_init(mthread_barrier_t * barrier, unsigned count);
+int mthread_barrier_wait(mthread_barrier_t *barrier);
+int mthread_barrier_destroy(mthread_barrier_t *barrier);
+
+typedef struct mthread_cond
+{
+    // TODO:
+} mthread_cond_t;
+
+int mthread_cond_init(mthread_cond_t *cond);
+int mthread_cond_destroy(mthread_cond_t *cond);
+int mthread_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
+int mthread_cond_signal(mthread_cond_t *cond);
+int mthread_cond_broadcast(mthread_cond_t *cond);
+
+typedef struct mthread_semaphore
+{
+    // TODO:
+} mthread_semaphore_t;
+
+int mthread_semaphore_init(mthread_semaphore_t *sem, int val);
+int mthread_semaphore_up(mthread_semaphore_t *sem);
+int mthread_semaphore_down(mthread_semaphore_t *sem);
+int mthread_semaphore_destroy(mthread_semaphore_t *sem);
 
 #endif

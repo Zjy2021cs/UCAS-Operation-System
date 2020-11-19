@@ -32,7 +32,7 @@
 #define SATP_MODE       SATP_MODE_39
 
 /* SCAUSE */
-#define SCAUSE_IRQ_FLAG   (1UL << 63)
+#define SCAUSE_IRQ_FLAG   (1 << 63)
 
 #define IRQ_U_SOFT		0
 #define IRQ_S_SOFT		1
@@ -75,5 +75,7 @@
 #define CSR_CYCLEH    0xc80
 #define CSR_TIMEH   0xc81
 #define CSR_INSTRETH    0xc82
+
+#define CSR_MHARTID 0xf14
 
 #endif /* CSR_H */

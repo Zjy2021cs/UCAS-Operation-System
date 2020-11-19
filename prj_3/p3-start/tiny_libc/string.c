@@ -65,3 +65,12 @@ char *strcat(char *dest, const char *src)
 
     return tmp;
 }
+
+int atoi(const char *str){
+    int num=0;
+    int i=0;
+    while(str[i]!='\0'){
+        num = num*10 + str[i++] - '0';
+    }
+    return num;
+}
