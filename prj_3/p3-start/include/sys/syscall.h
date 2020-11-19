@@ -31,6 +31,7 @@
 #include <os/syscall_number.h>
 #include <stdint.h>
 #include <os.h>
+#include <mthread.h>
 
 extern long invoke_syscall(long, long, long, long);
 
@@ -55,5 +56,9 @@ void sys_process_show(void);
 void sys_screen_clear(void);
 pid_t sys_getpid();
 int sys_get_char();
+
+int sys_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
+int sys_cond_signal(mthread_cond_t *cond);
+int sys_cond_broadcast(mthread_cond_t *cond);
 
 #endif

@@ -7,6 +7,7 @@
 #include <screen.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/binsem.h>
 
 pcb_t pcb[NUM_MAX_TASK];
 const ptr_t pid0_stack = INIT_KERNEL_STACK + PAGE_SIZE;
@@ -79,6 +80,9 @@ void do_block(list_node_t *pcb_node, list_head *queue)
 void do_unblock(list_node_t *pcb_node)
 {
     // TODO: unblock the `pcb` from the block queue
+    pcb_t *unblock_pcb;
+    unblock_pcb = list_entry(pcb_node, pcb_t, list);
+    unblock_pcb->status = TASK_READY;               
     list_move(pcb_node,&ready_queue);
 }
 
@@ -92,14 +96,28 @@ int do_binsemget(int key)
 int do_binsemop(int binsem_id, int op)
 {
     mutex_lock_t *lock = &binsem[binsem_id];
-    if(op==0){
+    if(op==BINSEM_OP_LOCK){
         do_mutex_lock_acquire(lock);
-    }else if(op==1){
+    }else if(op==BINSEM_OP_UNLOCK){
         do_mutex_lock_release(lock);
     }
     return 1;
 }
 
+int do_binsem_destroy(int binsem_id)
+{
+    mutex_lock_t *lock = &binsem[binsem_id];
+    /*while(!list_empty(&lock->block_queue)){
+        do_unblock(lock->block_queue.prev);
+    }
+    lock->lock.status=UNLOCKED;*/
+    if(list_empty(&lock->block_queue)){
+        return 1;
+    }else{
+        return 0;
+    }
+}
+//P3-task1--------------------------------------------------------------------------------------------------------------
 /* 回收内存 */
 void recycle(long *stack_base){
     *stack_base = recycle_queue;
@@ -160,7 +178,6 @@ void do_exit(void){
         pcb_t *wait_pcb;
         wait_pcb = list_entry(exit_pcb->wait_list.prev, pcb_t, list);
         if(wait_pcb->status!=TASK_EXITED){
-            wait_pcb->status = TASK_READY;
             do_unblock(exit_pcb->wait_list.prev);
         }
     }
@@ -205,7 +222,6 @@ int do_kill(pid_t pid){
         pcb_t *wait_pcb;
         wait_pcb = list_entry(killing_pcb->wait_list.prev, pcb_t, list);
         if(wait_pcb->status!=TASK_EXITED){
-            wait_pcb->status = TASK_READY;
             do_unblock(killing_pcb->wait_list.prev);
         }
     }                               
@@ -266,4 +282,25 @@ void do_process_show(){
 
 pid_t do_getpid(){
     return current_running->pid;
+}
+//P3-task2--------------------------------------------------------------------------------------------------------------
+int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex){
+    current_running->status = TASK_BLOCKED;    
+    list_add(&current_running->list,&cond->wait_queue);
+    do_binsemop(mutex->lock_id, BINSEM_OP_UNLOCK);
+    do_scheduler();
+    do_binsemop(mutex->lock_id, BINSEM_OP_LOCK);
+    return 1;
+}
+int do_cond_signal(mthread_cond_t *cond){
+    if(!list_empty(&cond->wait_queue)){
+        do_unblock(cond->wait_queue.prev);
+    }
+    return 1;
+}
+int do_cond_broadcast(mthread_cond_t *cond){
+    while(!list_empty(&cond->wait_queue)){
+        do_unblock(cond->wait_queue.prev);
+    }
+    return 1;
 }

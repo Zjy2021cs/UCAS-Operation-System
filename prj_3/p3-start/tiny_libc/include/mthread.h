@@ -29,6 +29,7 @@
 
 #include <stdint.h>
 #include <stdatomic.h>
+#include <os/list.h>
 
 /* on success, these functions return zero. Otherwise, return an error number */
 #define EBUSY  1 /* the lock is busy(for example, it is locked by another thread) */
@@ -38,8 +39,7 @@ typedef atomic_int mthread_spinlock_t;
 
 typedef struct mthread_mutex
 {
-    // TODO:
-    int lock_id;
+    int lock_id; 
 } mthread_mutex_t;
 
 int mthread_spin_init(mthread_spinlock_t *lock);
@@ -65,7 +65,9 @@ int mthread_barrier_destroy(mthread_barrier_t *barrier);
 
 typedef struct mthread_cond
 {
-    // TODO:
+    list_head wait_queue;
+    //int (*wait)(mthread_cond_t *cond, mthread_mutex_t *mutex);
+    //int (*signal)(mthread_cond_t *cond);
 } mthread_cond_t;
 
 int mthread_cond_init(mthread_cond_t *cond);

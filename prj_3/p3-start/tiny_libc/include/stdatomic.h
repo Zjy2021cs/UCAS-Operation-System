@@ -14,7 +14,7 @@ typedef volatile unsigned long atomic_ulong;
 typedef volatile long atomic_long;
 
 static inline uint32_t atomic_load(volatile uint32_t* obj)
-{
+{ 
     uint32_t arg = UINT32_MAX;
     uint32_t ret;
     __asm__ __volatile__ (

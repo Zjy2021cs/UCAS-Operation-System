@@ -34,6 +34,7 @@
 #include <os/mm.h>
 #include <os/time.h>
 #include <os/lock.h>
+#include <mthread.h>
 
 #define NUM_MAX_TASK 16
 
@@ -168,5 +169,10 @@ extern pid_t do_getpid();
 extern mutex_lock_t binsem[NUM_MAX_SEM];
 int do_binsemget(int key);
 int do_binsemop(int binsem_id, int op);
+int do_binsem_destroy(int binsem_id);
+//P3-task2
+int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
+int do_cond_signal(mthread_cond_t *cond);
+int do_cond_broadcast(mthread_cond_t *cond);
 
 #endif

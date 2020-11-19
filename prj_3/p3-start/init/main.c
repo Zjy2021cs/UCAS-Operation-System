@@ -137,6 +137,10 @@ static void init_syscall(void)
      
     syscall[SYSCALL_BINSEMGET]      = (long int (*)())&do_binsemget;
     syscall[SYSCALL_BINSEMOP]       = (long int (*)())&do_binsemop;
+    syscall[SYSCALL_BINSEMDESTROY]  = (long int (*)())&do_binsem_destroy;
+    syscall[SYSCALL_COND_WAIT]      = (long int (*)())&do_cond_wait;
+    syscall[SYSCALL_COND_SIGNAL]    = (long int (*)())&do_cond_signal;
+    syscall[SYSCALL_COND_BROADCAST] = (long int (*)())&do_cond_broadcast;
 }
 
 // jump from bootloader.

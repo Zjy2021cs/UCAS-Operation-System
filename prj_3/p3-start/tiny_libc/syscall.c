@@ -53,6 +53,11 @@ int  binsemop(int binsem_id, int op)
     return invoke_syscall(SYSCALL_BINSEMOP, binsem_id, op, IGNORE);
 }
 
+int  binsem_destroy(int binsem_id)
+{
+    return invoke_syscall(SYSCALL_BINSEMDESTROY, binsem_id, IGNORE, IGNORE);
+}
+
 void sys_write(char *buff)
 {
     invoke_syscall(SYSCALL_WRITE, (uintptr_t)buff, IGNORE, IGNORE);
@@ -86,4 +91,18 @@ long sys_get_timebase()
 long sys_get_tick()
 {
     return invoke_syscall(SYSCALL_GET_TICK, IGNORE, IGNORE, IGNORE);
+}
+
+int sys_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex)
+{
+    return invoke_syscall(SYSCALL_COND_WAIT, cond, mutex, IGNORE);
+}
+
+int sys_cond_signal(mthread_cond_t *cond)
+{
+    return invoke_syscall(SYSCALL_COND_SIGNAL, cond, IGNORE, IGNORE);
+}
+int sys_cond_broadcast(mthread_cond_t *cond)
+{
+    return invoke_syscall(SYSCALL_COND_BROADCAST, cond, IGNORE, IGNORE);
 }

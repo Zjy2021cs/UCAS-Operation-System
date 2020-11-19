@@ -6,5 +6,6 @@
 
 int binsemget(int key);
 int binsemop(int binsem_id, int op);
+int binsem_destroy(int binsem_id);
  
 #endif // BINSEM_H

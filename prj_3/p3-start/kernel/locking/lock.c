@@ -64,7 +64,6 @@ void do_mutex_lock_release(mutex_lock_t *lock)
         pcb_t *unblock_pcb;
         unblock_pcb = list_entry(lock->block_queue.prev, pcb_t, list);
         unblock_pcb->locks[unblock_pcb->lock_num++]=lock;
-        unblock_pcb->status = TASK_READY;
         do_unblock(lock->block_queue.prev);
         lock->lock.status=LOCKED;
     }

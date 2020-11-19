@@ -1,7 +1,7 @@
 #include <os/futex.h>
 #include <os/irq.h>
 #include <os/mm.h>
-#include <assert.h>
+#include <assert.h> 
 
 futex_bucket_t futex_buckets[FUTEX_BUCKETS];
 
@@ -53,8 +53,9 @@ void futex_wait(volatile uint64_t *val_addr, uint64_t val)
     assert(node != NULL);
 
     if (*val_addr == val) {
+        current_running->status = TASK_BLOCKED;     //my do_block don't change pcb_state
         do_block(&current_running->list, &node->block_queue);
-        do_scheduler();
+        //do_scheduler();                           //my do_block include do_scheduler
     }
 
     enable_preempt();
