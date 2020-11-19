@@ -60,5 +60,6 @@ int sys_get_char();
 int sys_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
 int sys_cond_signal(mthread_cond_t *cond);
 int sys_cond_broadcast(mthread_cond_t *cond);
+int sys_barrier_wait(mthread_barrier_t *barrier);
 
 #endif

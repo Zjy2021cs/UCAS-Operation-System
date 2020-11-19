@@ -304,3 +304,16 @@ int do_cond_broadcast(mthread_cond_t *cond){
     }
     return 1;
 }
+int do_barrier_wait(mthread_barrier_t *barrier){
+    barrier->wait_num++;
+    if(barrier->total_num==barrier->wait_num){
+        while(!list_empty(&barrier->barrier_queue))
+            do_unblock(barrier->barrier_queue.prev);
+        barrier->wait_num=0;
+    }else{
+        current_running->status = TASK_BLOCKED;    
+        list_add(&current_running->list,&barrier->barrier_queue);
+        do_scheduler();
+    }
+    return 1;
+}

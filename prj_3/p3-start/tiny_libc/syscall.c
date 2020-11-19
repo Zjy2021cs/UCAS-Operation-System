@@ -106,3 +106,8 @@ int sys_cond_broadcast(mthread_cond_t *cond)
 {
     return invoke_syscall(SYSCALL_COND_BROADCAST, cond, IGNORE, IGNORE);
 }
+
+int sys_barrier_wait(mthread_barrier_t *barrier)
+{
+    return invoke_syscall(SYSCALL_BARRIER_WAIT, barrier, IGNORE, IGNORE);
+}

@@ -56,7 +56,9 @@ int mthread_mutex_unlock(mthread_mutex_t *lock);
 
 typedef struct mthread_barrier
 {
-    // TODO:
+    unsigned total_num;
+    unsigned wait_num;
+    list_head barrier_queue;
 } mthread_barrier_t;
 
 int mthread_barrier_init(mthread_barrier_t * barrier, unsigned count);
@@ -66,8 +68,6 @@ int mthread_barrier_destroy(mthread_barrier_t *barrier);
 typedef struct mthread_cond
 {
     list_head wait_queue;
-    //int (*wait)(mthread_cond_t *cond, mthread_mutex_t *mutex);
-    //int (*signal)(mthread_cond_t *cond);
 } mthread_cond_t;
 
 int mthread_cond_init(mthread_cond_t *cond);

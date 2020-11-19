@@ -141,6 +141,7 @@ static void init_syscall(void)
     syscall[SYSCALL_COND_WAIT]      = (long int (*)())&do_cond_wait;
     syscall[SYSCALL_COND_SIGNAL]    = (long int (*)())&do_cond_signal;
     syscall[SYSCALL_COND_BROADCAST] = (long int (*)())&do_cond_broadcast;
+    syscall[SYSCALL_BARRIER_WAIT]   = (long int (*)())&do_barrier_wait;
 }
 
 // jump from bootloader.

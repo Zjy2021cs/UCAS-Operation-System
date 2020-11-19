@@ -174,5 +174,6 @@ int do_binsem_destroy(int binsem_id);
 int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
 int do_cond_signal(mthread_cond_t *cond);
 int do_cond_broadcast(mthread_cond_t *cond);
+int do_barrier_wait(mthread_barrier_t *barrier);
 
 #endif

@@ -47,27 +47,28 @@ int mthread_mutex_unlock(mthread_mutex_t *lock)
 
 int mthread_barrier_init(mthread_barrier_t * barrier, unsigned count)
 {
-    // TODO:
+    barrier->total_num = count;
+    barrier->wait_num  = 0;
+    init_list_head(&barrier->barrier_queue);
 }
 int mthread_barrier_wait(mthread_barrier_t *barrier)
 {
-    // TODO:
+    return sys_barrier_wait(barrier);
 }
 int mthread_barrier_destroy(mthread_barrier_t *barrier)
 {
-    // TODO:
+    if(list_empty(&barrier->barrier_queue)){
+        return 1;
+    }else{
+        return 0;
+    }
 }
 
 int mthread_cond_init(mthread_cond_t *cond)
 {
     init_list_head(&cond->wait_queue);
-    //cond->wait = &mthread_cond_wait;
-    //cond->signal = &mthread_cond_signal;
 }
 int mthread_cond_destroy(mthread_cond_t *cond) {
-    /*while(!list_empty(&cond->wait_queue)){
-        do_unblock(cond->wait_queue.prev);
-    }*/
     if(list_empty(&cond->wait_queue)){
         return 1;
     }else{
