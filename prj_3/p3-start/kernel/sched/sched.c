@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <sys/binsem.h>
+#include <os/string.h>
 
 pcb_t pcb[NUM_MAX_TASK];
 const ptr_t pid0_stack = INIT_KERNEL_STACK + PAGE_SIZE;
@@ -141,6 +142,7 @@ pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode){
     if (!list_empty(&exit_queue))
     {
         new_pcb = list_entry(exit_queue.prev, pcb_t, list);
+        list_del(exit_queue.prev);
     }else
     {
         new_pcb = &pcb[process_num++];
@@ -316,4 +318,60 @@ int do_barrier_wait(mthread_barrier_t *barrier){
         do_scheduler();
     }
     return 1;
+}
+
+//P3-task3--------------------------------------------------------------------------------------------------------------
+mailbox_k_t mailbox_k[MAX_MBOX_NUM]; //kernel's mail box
+int do_mbox_open(char *name)
+{
+    int i;
+    for(i=0;i<MAX_MBOX_NUM;i++){
+        if(kstrcmp(name,mailbox_k[i].name)==0){
+            return i;
+        }
+    }
+    for(i=0;i<MAX_MBOX_NUM;i++){
+        if(mailbox_k[i].status==MBOX_CLOSE){
+            mailbox_k[i].status=MBOX_OPEN;
+            int j=0;
+            while(*name){
+                mailbox_k[i].name[j++]=*name;
+                name++;
+            }
+            mailbox_k[i].name[j]='\0';
+            return i;
+        }
+    }
+    prints("No mailbox is available\n");
+}
+void do_mbox_close(int mailbox_id){
+    mailbox_k[mailbox_id].status = MBOX_CLOSE;
+}
+void do_mbox_send(int mailbox_id, void *msg, int msg_length){
+    if((mailbox_k[mailbox_id].index+msg_length)>MAX_MBOX_LENGTH){   //mailbox is full
+        //do_cond_wait(&mailbox_k[mailbox_id].full, &mailbox_k[mailbox_id].mutex);block the task unil box is not full
+        current_running->status = TASK_BLOCKED;    
+        list_add(&current_running->list,&mailbox_k[mailbox_id].full.wait_queue);
+        do_scheduler();
+    }
+    //put msg in mailbox
+    int i;
+    for(i=0;i<msg_length;i++){
+        mailbox_k[mailbox_id].msg[mailbox_k[mailbox_id].index++] = ((char*)msg)[i];
+    }
+    do_cond_broadcast(&mailbox_k[mailbox_id].empty);     //release all tasks waitin for msg      
+}
+void do_mbox_recv(int mailbox_id, void *msg, int msg_length){
+    if((mailbox_k[mailbox_id].index-msg_length)<0){      //mailbox is empty
+        //block the task unil box is not empty
+        current_running->status = TASK_BLOCKED;    
+        list_add(&current_running->list,&mailbox_k[mailbox_id].empty.wait_queue);
+        do_scheduler();
+    }
+    //get msg from mailbox
+    int i;
+    for(i=msg_length-1;i>=0;i--){
+        ((char*)msg)[i] = mailbox_k[mailbox_id].msg[--mailbox_k[mailbox_id].index];
+    }
+    do_cond_broadcast(&mailbox_k[mailbox_id].full);     //release all tasks waitin for send msg             
 }

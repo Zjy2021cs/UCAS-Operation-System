@@ -40,7 +40,7 @@ typedef atomic_int mthread_spinlock_t;
 typedef struct mthread_mutex
 {
     int lock_id; 
-} mthread_mutex_t;
+} mthread_mutex_t; 
 
 int mthread_spin_init(mthread_spinlock_t *lock);
 int mthread_spin_destroy(mthread_spinlock_t *lock);

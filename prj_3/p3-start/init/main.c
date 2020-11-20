@@ -38,6 +38,7 @@
  
 #include <csr.h>
 #include <os/lock.h>
+#include <mailbox.h>
 
 extern void ret_from_exception();
 extern void printk_task1(void);
@@ -142,6 +143,10 @@ static void init_syscall(void)
     syscall[SYSCALL_COND_SIGNAL]    = (long int (*)())&do_cond_signal;
     syscall[SYSCALL_COND_BROADCAST] = (long int (*)())&do_cond_broadcast;
     syscall[SYSCALL_BARRIER_WAIT]   = (long int (*)())&do_barrier_wait;
+    syscall[SYSCALL_MBOX_OPEN]      = (long int (*)())&do_mbox_open;
+    syscall[SYSCALL_MBOX_CLOSE]     = (long int (*)())&do_mbox_close;
+    syscall[SYSCALL_MBOX_SEND]      = (long int (*)())&do_mbox_send;
+    syscall[SYSCALL_MBOX_RECV]      = (long int (*)())&do_mbox_recv;
 }
 
 // jump from bootloader.
@@ -175,6 +180,14 @@ int main()
     int i;
     for(i=0;i<NUM_MAX_SEM;i++){
         do_mutex_lock_init(&binsem[i]);
+    }
+    //init mailbox_k
+    for(i=0;i<MAX_MBOX_NUM;i++){
+        mailbox_k[i].index = 0;
+        mailbox_k[i].visited = 0;
+        mailbox_k[i].status = MBOX_CLOSE;
+        mthread_cond_init(&mailbox_k[i].empty);
+        mthread_cond_init(&mailbox_k[i].full);
     }
 
     // TODO:

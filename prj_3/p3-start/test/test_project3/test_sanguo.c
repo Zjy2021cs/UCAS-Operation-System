@@ -62,8 +62,8 @@ void LiuBei(void)
     /* Find sunquan's PID */
     mailbox_t sub = mbox_open("SunQuan-Publish-PID");
 
-    // sys_move_cursor(1, 2);
-    // printf("LiuBei(%d): Hello, I am Liubei          ", myPid);
+    sys_move_cursor(1, 2);
+    printf("LiuBei(%d): Hello, I am Liubei          ", myPid);
 
     for (;;)
     {

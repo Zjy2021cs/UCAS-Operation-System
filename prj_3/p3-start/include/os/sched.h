@@ -35,6 +35,7 @@
 #include <os/time.h>
 #include <os/lock.h>
 #include <mthread.h>
+#include <mailbox.h>
 
 #define NUM_MAX_TASK 16
 
@@ -175,5 +176,10 @@ int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
 int do_cond_signal(mthread_cond_t *cond);
 int do_cond_broadcast(mthread_cond_t *cond);
 int do_barrier_wait(mthread_barrier_t *barrier);
+//P3-task3
+int do_mbox_open(char *name);
+void do_mbox_close(int mailbox_id);
+void do_mbox_send(int mailbox_id, void *msg, int msg_length);
+void do_mbox_recv(int mailbox_id, void *msg, int msg_length);
 
 #endif
