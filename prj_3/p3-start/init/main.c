@@ -93,8 +93,8 @@ static void init_pcb()
     pcb[0].type = USER_PROCESS; 
     pcb[0].status = TASK_READY;
     pcb[0].mode = AUTO_CLEANUP_ON_EXIT;
-    pcb[0].cursor_x = 1;
-    pcb[0].cursor_y = 1;
+    pcb[0].cursor_x = 0;
+    pcb[0].cursor_y = 0;
     pcb[0].lock_num = 0;
     //将pcb入就绪队列（拉链赋值list）
     list_add(&pcb[0].list, &ready_queue);
@@ -157,7 +157,6 @@ int main()
 {
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
-    printk("running cpu_id=%d\n",cpu_id);
     /* master core */
     if(cpu_id==0){
         // init Process Control Block (-_-!)
@@ -198,15 +197,21 @@ int main()
     
         // Wake up slave core
         smp_init();
+        lock_kernel();
         wakeup_other_hart();
+        /*try slave core only.........
+        unlock_kernel();
+        while(1);*/
     }else
     {   /* slave core*/
+        lock_kernel();
         setup_exception();
     }
+    printk("running cpu_id=%d\n",cpu_id);
     // TODO: Setup timer interrupt and enable all interrupt
     reset_irq_timer();
     enable_interrupt();
-
+    unlock_kernel();
     while (1) {
         // (QAQQQQQQQQQQQ)
         // If you do non-preemptive scheduling, you need to use it
@@ -214,6 +219,7 @@ int main()
         // enable_interrupt();
         // __asm__ __volatile__("wfi\n\r":::);
         //do_scheduler();
+        
     };
     return 0;
 }

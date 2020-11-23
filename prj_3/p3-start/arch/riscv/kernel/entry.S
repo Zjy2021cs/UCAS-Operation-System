@@ -146,7 +146,7 @@ ENDPROC(enable_preempt)
 
 //不允许抢占
 ENTRY(disable_preempt)
-  csrw CSR_SIE, zero
+  //csrw CSR_SIE, zero
   ld t1, current_running
   csrr a0, CSR_MHARTID
   bnez a0, slave_current_d
@@ -171,7 +171,7 @@ ENDPROC(enable_interrupt)
 //关中断
 ENTRY(disable_interrupt)
   li t0, SR_SIE
-  csrs CSR_SSTATUS, t0
+  csrc CSR_SSTATUS, t0
   jr ra
 ENDPROC(disable_interrupt)
 
@@ -228,16 +228,15 @@ ENDPROC(switch_to)
 ENTRY(ret_from_exception)
   /* TODO: */
   csrw CSR_SSCRATCH,tp
-  RESTORE_CONTEXT
   call unlock_kernel
+  RESTORE_CONTEXT
   sret
 ENDPROC(ret_from_exception)
 
 //例外（异常中断）处理总入口
 ENTRY(exception_handler_entry)
-  call lock_kernel
   SAVE_CONTEXT
-
+  call lock_kernel
   csrw CSR_SSCRATCH, x0
 
   /* Load the global pointer */

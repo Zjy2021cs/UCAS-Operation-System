@@ -3,7 +3,6 @@
 #include <os/sched.h>
 #include <os/smp.h>
 #include <os/lock.h>
-#include <csr.h>
 
 spin_lock_t kernel_lock;
 
@@ -18,7 +17,7 @@ void wakeup_other_hart()
 {
     sbi_send_ipi(NULL); 
     __asm__ __volatile__ (
-        "csrw CSR_SIP, zero"          
+        "csrw sip, zero"
     );
 }
 

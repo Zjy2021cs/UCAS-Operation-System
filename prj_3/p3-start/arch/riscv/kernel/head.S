@@ -25,6 +25,9 @@ ENTRY(_start)
   la gp, __global_pointer$
   .option pop
 
+  csrr a0, CSR_MHARTID
+  bnez a0, slave_core
+  
   /* Clear BSS for flat non-ELF images */
   la a3, __bss_start
   la a4, __BSS_END__
@@ -36,9 +39,6 @@ clear_bss:
 clear_bss_done:
 
   /* setup C environment */
-  csrr a0, CSR_MHARTID
-  bnez a0, slave_core
-  
   la tp, pid0_pcb_m
   lw sp, pid0_stack_m
   csrw CSR_SSCRATCH, x0

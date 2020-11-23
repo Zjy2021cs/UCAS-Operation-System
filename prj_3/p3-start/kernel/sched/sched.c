@@ -59,8 +59,8 @@ void do_scheduler(void)
     // restore the current_runnint's cursor_x and cursor_y
     vt100_move_cursor(current_running[cpu_id]->cursor_x,
                       current_running[cpu_id]->cursor_y);
-    screen_cursor_x = current_running[cpu_id]->cursor_x;
-    screen_cursor_y = current_running[cpu_id]->cursor_y;
+    //screen_cursor_x = current_running[cpu_id]->cursor_x;
+    //screen_cursor_y = current_running[cpu_id]->cursor_y;
     // TODO: switch_to current_running
     switch_to(prev_running, current_running[cpu_id]);
 }
@@ -173,8 +173,8 @@ pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode){
     new_pcb->type = task->type;
     new_pcb->status = TASK_READY;
     new_pcb->mode = mode;
-    new_pcb->cursor_x = 1;
-    new_pcb->cursor_y = 1;
+    new_pcb->cursor_x = 0;
+    new_pcb->cursor_y = 0;
     new_pcb->lock_num = 0;
     list_add(&new_pcb->list, &ready_queue);
     init_list_head(&new_pcb->wait_list);
@@ -214,7 +214,7 @@ void do_exit(void){
     
     /* 修改状态 */
     exit_pcb->status = TASK_EXITED;            //or zombie????????????????????????????????????????????????
-
+    exit_pcb->pid = 0;
     do_scheduler();
 }
 
@@ -257,6 +257,7 @@ int do_kill(pid_t pid){
     
     /* 修改状态 */
     killing_pcb->status = TASK_EXITED;       //or zombie????????????????????????????????????????????????????????
+    killing_pcb->pid = 0;
     
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();

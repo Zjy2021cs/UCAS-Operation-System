@@ -59,7 +59,7 @@ void test_multicore(void)
     int multi_core_final_result = 0;
     for (int i = 0; i < NUM_CPUS; ++i) {
         multi_core_final_result += multi_core_results[i];
-	multi_core_final_result = multi_core_final_result % MOD;
+	multi_core_final_result = multi_core_final_result % MOD; 
     }
     clock_t multiCoreEnd = clock();
     sys_move_cursor(1, 7);

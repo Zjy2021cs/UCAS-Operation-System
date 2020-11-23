@@ -27,8 +27,8 @@
 #ifndef INCLUDE_CONSOLE_H_
 #define INCLUDE_CONSOLE_H_
 
-extern int screen_cursor_x;
-extern int screen_cursor_y;
+//extern int screen_cursor_x;
+//extern int screen_cursor_y;
 
 void vt100_move_cursor(int, int);
 
