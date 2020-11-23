@@ -13,10 +13,12 @@ void timer_create(TimerCallback func, void* parameter, uint64_t tick)
 {
     disable_preempt();
     // TODO:
-    current_running->timer.timeout_tick = tick+get_ticks();
-    current_running->timer.callback_func = func;
-    current_running->timer.parameter = parameter;
-    list_add(&(current_running->timer.list),&timers);
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    current_running[cpu_id]->timer.timeout_tick = tick+get_ticks();
+    current_running[cpu_id]->timer.callback_func = func;
+    current_running[cpu_id]->timer.parameter = parameter;
+    list_add(&(current_running[cpu_id]->timer.list),&timers);
     enable_preempt();
 }
 

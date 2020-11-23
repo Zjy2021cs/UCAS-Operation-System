@@ -242,13 +242,15 @@ static int _vprint(const char* fmt, va_list _va,
 
     disable_preempt();
     output(buff);
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
     for (int i = 0; i < ret; ++i) {
         if (buff[i] == '\n') {
-            current_running->cursor_y++;
+            current_running[cpu_id]->cursor_y++;
         } else if (buff[i] == '\r') {
-            current_running->cursor_x = 1;
+            current_running[cpu_id]->cursor_x = 1;
         } else {
-            current_running->cursor_x++;
+            current_running[cpu_id]->cursor_x++;
         }
     }
     enable_preempt();

@@ -36,10 +36,19 @@ clear_bss:
 clear_bss_done:
 
   /* setup C environment */
-  la tp, pid0_pcb
-  lw sp, pid0_stack
+  csrr a0, CSR_MHARTID
+  bnez a0, slave_core
+  
+  la tp, pid0_pcb_m
+  lw sp, pid0_stack_m
+  csrw CSR_SSCRATCH, x0
+  j all
+slave_core:
+  la tp, pid0_pcb_s
+  lw sp, pid0_stack_s
   csrw CSR_SSCRATCH, x0
 
+all:
   la a0, riscv_dtb
   sd a1, (a0)
 

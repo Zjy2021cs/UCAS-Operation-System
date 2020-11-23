@@ -16,7 +16,7 @@
 _restore_kernel_tpsp:
   csrr tp, CSR_SSCRATCH
   sd sp, PCB_KERNEL_SP(tp)
-_save_context:
+_save_context: 
   sd sp, PCB_USER_SP(tp)
   ld sp, PCB_KERNEL_SP(tp)
   addi sp, sp, -(OFFSET_SIZE)
@@ -125,6 +125,13 @@ _save_context:
 //允许抢占
 ENTRY(enable_preempt)
   ld t1, current_running
+  csrr a0, CSR_MHARTID
+  bnez a0, slave_current
+  ld t1, 0(t1)
+  j next_e
+slave_current:
+  ld t1, 8(t1)
+next_e:
   ld t0, PCB_PREEMPT_COUNT(t1)
   beq t0, zero, do_enable
   addi t0, t0, -1
@@ -141,6 +148,13 @@ ENDPROC(enable_preempt)
 ENTRY(disable_preempt)
   csrw CSR_SIE, zero
   ld t1, current_running
+  csrr a0, CSR_MHARTID
+  bnez a0, slave_current_d
+  ld t1, 0(t1)
+  j next_d
+slave_current_d:
+  ld t1, 8(t1)
+next_d:
   ld t0, PCB_PREEMPT_COUNT(t1)
   addi t0, t0, 1
   sd t0, PCB_PREEMPT_COUNT(t1)
@@ -215,11 +229,13 @@ ENTRY(ret_from_exception)
   /* TODO: */
   csrw CSR_SSCRATCH,tp
   RESTORE_CONTEXT
+  call unlock_kernel
   sret
 ENDPROC(ret_from_exception)
 
 //例外（异常中断）处理总入口
 ENTRY(exception_handler_entry)
+  call lock_kernel
   SAVE_CONTEXT
 
   csrw CSR_SSCRATCH, x0

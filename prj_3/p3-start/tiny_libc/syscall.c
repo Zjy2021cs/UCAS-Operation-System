@@ -95,19 +95,19 @@ long sys_get_tick()
 
 int sys_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex)
 {
-    return invoke_syscall(SYSCALL_COND_WAIT, cond, mutex, IGNORE);
+    return invoke_syscall(SYSCALL_COND_WAIT, (uintptr_t)cond, (uintptr_t)mutex, IGNORE);
 }
 
 int sys_cond_signal(mthread_cond_t *cond)
 {
-    return invoke_syscall(SYSCALL_COND_SIGNAL, cond, IGNORE, IGNORE);
+    return invoke_syscall(SYSCALL_COND_SIGNAL, (uintptr_t)cond, IGNORE, IGNORE);
 }
 int sys_cond_broadcast(mthread_cond_t *cond)
 {
-    return invoke_syscall(SYSCALL_COND_BROADCAST, cond, IGNORE, IGNORE);
+    return invoke_syscall(SYSCALL_COND_BROADCAST, (uintptr_t)cond, IGNORE, IGNORE);
 }
 
 int sys_barrier_wait(mthread_barrier_t *barrier)
 {
-    return invoke_syscall(SYSCALL_BARRIER_WAIT, barrier, IGNORE, IGNORE);
+    return invoke_syscall(SYSCALL_BARRIER_WAIT, (uintptr_t)barrier, IGNORE, IGNORE);
 }

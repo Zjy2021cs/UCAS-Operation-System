@@ -45,7 +45,7 @@ typedef struct mutex_lock
     spin_lock_t lock;
     list_head block_queue;
 } mutex_lock_t;
-
+ 
 /* init lock */
 void spin_lock_init(spin_lock_t *lock);
 int spin_lock_try_acquire(spin_lock_t *lock);

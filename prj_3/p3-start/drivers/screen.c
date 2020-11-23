@@ -22,8 +22,10 @@ void vt100_move_cursor(int x, int y)
     // \033[y;xH
     disable_preempt();
     printk("%c[%d;%dH", 27, y, x);
-    current_running->cursor_x = x;
-    current_running->cursor_y = y;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    current_running[cpu_id]->cursor_x = x;
+    current_running[cpu_id]->cursor_y = y;
     enable_preempt();
 }
 
@@ -54,8 +56,10 @@ static void screen_write_ch(char ch)
         new_screen[(screen_cursor_y - 1) * SCREEN_WIDTH + (screen_cursor_x - 1)] = ch;
         screen_cursor_x++;
     }
-    current_running->cursor_x = screen_cursor_x;
-    current_running->cursor_y = screen_cursor_y;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    current_running[cpu_id]->cursor_x = screen_cursor_x;
+    current_running[cpu_id]->cursor_y = screen_cursor_y;
 }
 
 void init_screen(void)
@@ -83,8 +87,10 @@ void screen_move_cursor(int x, int y)
 {
     screen_cursor_x = x;
     screen_cursor_y = y;
-    current_running->cursor_x = screen_cursor_x;
-    current_running->cursor_y = screen_cursor_y;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    current_running[cpu_id]->cursor_x = screen_cursor_x;
+    current_running[cpu_id]->cursor_y = screen_cursor_y;
 }
 
 void screen_write(char *buff)

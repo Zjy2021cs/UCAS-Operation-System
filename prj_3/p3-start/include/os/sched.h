@@ -36,6 +36,7 @@
 #include <os/lock.h>
 #include <mthread.h>
 #include <mailbox.h>
+#include <os/smp.h>
 
 #define NUM_MAX_TASK 16
 
@@ -131,14 +132,16 @@ typedef struct task_info
 extern list_head ready_queue;
 
 /* current running task PCB */
-extern pcb_t * volatile current_running;
-// extern pcb_t * volatile current_running[NR_CPUS];
+// extern pcb_t * volatile current_running;
+extern pcb_t * volatile current_running[NR_CPUS];
 extern pid_t process_id;
 
 extern pcb_t pcb[NUM_MAX_TASK];
 // extern pcb_t kernel_pcb[NR_CPUS];
-extern pcb_t pid0_pcb;
-extern const ptr_t pid0_stack;
+extern pcb_t pid0_pcb_m;
+extern const ptr_t pid0_stack_m;
+extern pcb_t pid0_pcb_s;
+extern const ptr_t pid0_stack_s;
 
 extern void init_pcb_stack(
     ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, void* arg, pcb_t *pcb);

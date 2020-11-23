@@ -11,60 +11,71 @@
 #include <os/string.h>
 
 pcb_t pcb[NUM_MAX_TASK];
-const ptr_t pid0_stack = INIT_KERNEL_STACK + PAGE_SIZE;
-pcb_t pid0_pcb = {
+const ptr_t pid0_stack_m = INIT_KERNEL_STACK_M + PAGE_SIZE;
+pcb_t pid0_pcb_m = {
     .pid = 0,
-    .kernel_sp = (ptr_t)pid0_stack,
-    .user_sp = (ptr_t)pid0_stack,
+    .kernel_sp = (ptr_t)pid0_stack_m,
+    .user_sp = (ptr_t)pid0_stack_m,
     .preempt_count = 0
-};  //代表内核本身
+};  //代表master核本身
+const ptr_t pid0_stack_s = INIT_KERNEL_STACK_S + PAGE_SIZE;
+pcb_t pid0_pcb_s = {
+    .pid = 0,
+    .kernel_sp = (ptr_t)pid0_stack_s,
+    .user_sp = (ptr_t)pid0_stack_s,
+    .preempt_count = 0
+};  //代表slave核本身
 
 LIST_HEAD(ready_queue);
 LIST_HEAD(exit_queue);
 ptr_t recycle_queue = (ptr_t)&recycle_queue;      //list_head of re-free stack
 
 /* current running task PCB */
-pcb_t * volatile current_running;
+pcb_t * volatile current_running[NR_CPUS];
 
 void do_scheduler(void)
 {
     __asm__ __volatile__("csrr x0, sscratch\n");  
     // TODO schedule
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
     // Modify the current_running pointer.
     pcb_t *prev_running;
-    prev_running = current_running;
+    prev_running = current_running[cpu_id];
 
-    if(current_running->status!=TASK_BLOCKED && current_running->status!=TASK_EXITED){
-        current_running->status=TASK_READY;
-        if(current_running->pid!=0){
-            list_add(&current_running->list,&ready_queue);
+    if(current_running[cpu_id]->status!=TASK_BLOCKED && current_running[cpu_id]->status!=TASK_EXITED){
+        current_running[cpu_id]->status=TASK_READY;
+        if(current_running[cpu_id]->pid!=0){
+            list_add(&current_running[cpu_id]->list,&ready_queue);
         }
     }
     
     if(!list_empty(&ready_queue)){
-        current_running = list_entry(ready_queue.prev, pcb_t, list);
+        current_running[cpu_id] = list_entry(ready_queue.prev, pcb_t, list);
         list_del(ready_queue.prev);
     }
-    current_running->status=TASK_RUNNING;
+    current_running[cpu_id]->status=TASK_RUNNING;
 
     // restore the current_runnint's cursor_x and cursor_y
-    vt100_move_cursor(current_running->cursor_x,
-                      current_running->cursor_y);
-    screen_cursor_x = current_running->cursor_x;
-    screen_cursor_y = current_running->cursor_y;
+    vt100_move_cursor(current_running[cpu_id]->cursor_x,
+                      current_running[cpu_id]->cursor_y);
+    screen_cursor_x = current_running[cpu_id]->cursor_x;
+    screen_cursor_y = current_running[cpu_id]->cursor_y;
     // TODO: switch_to current_running
-    switch_to(prev_running, current_running);
+    switch_to(prev_running, current_running[cpu_id]);
 }
  
 //将调用该方法的进程挂起到全局timers队列，当睡眠时间达到后再由调度器从timers队列将其加入到就绪队列中继续运行
 void do_sleep(uint32_t sleep_time)
 {
     // TODO: sleep(seconds)
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
     // note: you can assume: 1 second = `timebase` ticks
     // 1. block the current_running
-    current_running->status=TASK_BLOCKED;
+    current_running[cpu_id]->status=TASK_BLOCKED;
     // 2. create a timer which calls `do_unblock` when timeout, <time.h>
-    timer_create((TimerCallback)(&do_unblock), &current_running->list, sleep_time*time_base);
+    timer_create((TimerCallback)(&do_unblock), &current_running[cpu_id]->list, sleep_time*time_base);
     // 3. reschedule because the current_running is blocked.
     do_scheduler();
 }
@@ -173,7 +184,9 @@ pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode){
 
 //exit from the current_running pcb, recycle the pcb/stack/lock
 void do_exit(void){
-    pcb_t *exit_pcb = current_running;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    pcb_t *exit_pcb = current_running[cpu_id];
 
     /* 释放wait队列 */
     while(!list_empty(&exit_pcb->wait_list)){
@@ -245,7 +258,9 @@ int do_kill(pid_t pid){
     /* 修改状态 */
     killing_pcb->status = TASK_EXITED;       //or zombie????????????????????????????????????????????????????????
     
-    if(killing_pcb==current_running)
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    if(killing_pcb==current_running[cpu_id])
         do_scheduler();
 
     return 1;
@@ -259,8 +274,10 @@ int do_waitpid(pid_t pid){
     {
         return 0;
     }
-    current_running->status = TASK_BLOCKED;
-    do_block(&current_running->list, &pcb[i].wait_list);
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    current_running[cpu_id]->status = TASK_BLOCKED;
+    do_block(&current_running[cpu_id]->list, &pcb[i].wait_list);
     return 1;
 }
 
@@ -283,12 +300,16 @@ void do_process_show(){
 }
 
 pid_t do_getpid(){
-    return current_running->pid;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    return current_running[cpu_id]->pid;
 }
 //P3-task2--------------------------------------------------------------------------------------------------------------
 int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex){
-    current_running->status = TASK_BLOCKED;    
-    list_add(&current_running->list,&cond->wait_queue);
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    current_running[cpu_id]->status = TASK_BLOCKED;    
+    list_add(&current_running[cpu_id]->list,&cond->wait_queue);
     do_binsemop(mutex->lock_id, BINSEM_OP_UNLOCK);
     do_scheduler();
     do_binsemop(mutex->lock_id, BINSEM_OP_LOCK);
@@ -313,8 +334,10 @@ int do_barrier_wait(mthread_barrier_t *barrier){
             do_unblock(barrier->barrier_queue.prev);
         barrier->wait_num=0;
     }else{
-        current_running->status = TASK_BLOCKED;    
-        list_add(&current_running->list,&barrier->barrier_queue);
+        uint64_t cpu_id;
+        cpu_id = get_current_cpu_id();
+        current_running[cpu_id]->status = TASK_BLOCKED;    
+        list_add(&current_running[cpu_id]->list,&barrier->barrier_queue);
         do_scheduler();
     }
     return 1;
@@ -343,15 +366,18 @@ int do_mbox_open(char *name)
         }
     }
     prints("No mailbox is available\n");
+    return -1;
 }
 void do_mbox_close(int mailbox_id){
     mailbox_k[mailbox_id].status = MBOX_CLOSE;
 }
 void do_mbox_send(int mailbox_id, void *msg, int msg_length){
     if((mailbox_k[mailbox_id].index+msg_length)>MAX_MBOX_LENGTH){   //mailbox is full
-        //do_cond_wait(&mailbox_k[mailbox_id].full, &mailbox_k[mailbox_id].mutex);block the task unil box is not full
-        current_running->status = TASK_BLOCKED;    
-        list_add(&current_running->list,&mailbox_k[mailbox_id].full.wait_queue);
+        //block the task unil box is not full
+        uint64_t cpu_id;
+        cpu_id = get_current_cpu_id();
+        current_running[cpu_id]->status = TASK_BLOCKED;    
+        list_add(&current_running[cpu_id]->list,&mailbox_k[mailbox_id].full.wait_queue);
         do_scheduler();
     }
     //put msg in mailbox
@@ -364,8 +390,10 @@ void do_mbox_send(int mailbox_id, void *msg, int msg_length){
 void do_mbox_recv(int mailbox_id, void *msg, int msg_length){
     if((mailbox_k[mailbox_id].index-msg_length)<0){      //mailbox is empty
         //block the task unil box is not empty
-        current_running->status = TASK_BLOCKED;    
-        list_add(&current_running->list,&mailbox_k[mailbox_id].empty.wait_queue);
+        uint64_t cpu_id;
+        cpu_id = get_current_cpu_id();
+        current_running[cpu_id]->status = TASK_BLOCKED;    
+        list_add(&current_running[cpu_id]->list,&mailbox_k[mailbox_id].empty.wait_queue);
         do_scheduler();
     }
     //get msg from mailbox

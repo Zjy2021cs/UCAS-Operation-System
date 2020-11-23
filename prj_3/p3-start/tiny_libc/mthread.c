@@ -9,21 +9,26 @@
 int mthread_spin_init(mthread_spinlock_t *lock)
 {
     // TODO:
+    return 0;
 }
 int mthread_spin_destroy(mthread_spinlock_t *lock) {
     // TODO:
+    return 0;
 }
 int mthread_spin_trylock(mthread_spinlock_t *lock)
 {
     // TODO:
+    return 0;
 }
 int mthread_spin_lock(mthread_spinlock_t *lock)
 {
     // TODO:
+    return 0;
 }
 int mthread_spin_unlock(mthread_spinlock_t *lock)
 {
     // TODO:
+    return 0;
 }
 
 int mthread_mutex_init(mthread_mutex_t *lock)
@@ -36,6 +41,7 @@ int mthread_mutex_destroy(mthread_mutex_t *lock) {
 }
 int mthread_mutex_trylock(mthread_mutex_t *lock) {
     // TODO:
+    return 0;
 }
 int mthread_mutex_lock(mthread_mutex_t *lock) {
     return binsemop(lock->lock_id, BINSEM_OP_LOCK);
@@ -91,16 +97,20 @@ int mthread_cond_broadcast(mthread_cond_t *cond)
 int mthread_semaphore_init(mthread_semaphore_t *sem, int val)
 {
     // TODO:
+    return 0;
 }
 int mthread_semaphore_up(mthread_semaphore_t *sem)
 {
     // TODO:
+    return 0;
 }
 int mthread_semaphore_down(mthread_semaphore_t *sem)
 {
     // TODO:
+    return 0;
 }
 int mthread_semaphore_destroy(mthread_semaphore_t *sem)
 {
     // TODO:
+    return 0;
 }

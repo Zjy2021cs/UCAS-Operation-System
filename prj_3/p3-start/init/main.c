@@ -39,6 +39,7 @@
 #include <csr.h>
 #include <os/lock.h>
 #include <mailbox.h>
+#include <os/smp.h>
 
 extern void ret_from_exception();
 extern void printk_task1(void);
@@ -102,7 +103,8 @@ static void init_pcb()
 
     /* remember to initialize `current_running`
      * TODO:*/
-    current_running = &pid0_pcb;
+    current_running[0] = &pid0_pcb_m;
+    current_running[1] = &pid0_pcb_s;
 }
 
 static void init_syscall(void)
@@ -153,48 +155,58 @@ static void init_syscall(void)
 // The beginning of everything >_< ~~~~~~~~~~~~~~
 int main()
 {
-    // init Process Control Block (-_-!)
-    init_pcb();
-    printk("> [INIT] PCB initialization succeeded.\n\r");
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    printk("running cpu_id=%d\n",cpu_id);
+    /* master core */
+    if(cpu_id==0){
+        // init Process Control Block (-_-!)
+        init_pcb();
+        printk("> [INIT] PCB initialization succeeded.\n\r");
 
-    // read CPU frequency
-    time_base = sbi_read_fdt(TIMEBASE);
+        // read CPU frequency
+        time_base = sbi_read_fdt(TIMEBASE);
 	
-    // init futex mechanism
-    init_system_futex();
+        // init futex mechanism
+        init_system_futex();
 
-    // init interrupt (^_^)
-    init_exception();
-    printk("> [INIT] Interrupt processing initialization succeeded.\n\r");
+        // init interrupt (^_^)
+        init_exception();
+        printk("> [INIT] Interrupt processing initialization succeeded.\n\r");
 
-    // init system call table (0_0)
-    init_syscall();
-    printk("> [INIT] System call initialized successfully.\n\r");
+        // init system call table (0_0)
+        init_syscall();
+        printk("> [INIT] System call initialized successfully.\n\r");
 
-    // fdt_print(riscv_dtb);
-
-    // init screen (QAQ)
-    init_screen();
-    printk("> [INIT] SCREEN initialization succeeded.\n\r");
-    //init binsem_block
-    int i;
-    for(i=0;i<NUM_MAX_SEM;i++){
-        do_mutex_lock_init(&binsem[i]);
+        // fdt_print(riscv_dtb);
+        // init screen (QAQ)
+        init_screen();
+        printk("> [INIT] SCREEN initialization succeeded.\n\r");
+        //init binsem_block
+        int i;
+        for(i=0;i<NUM_MAX_SEM;i++){
+            do_mutex_lock_init(&binsem[i]);
+        }
+        //init mailbox_k
+        for(i=0;i<MAX_MBOX_NUM;i++){
+            mailbox_k[i].index = 0;
+            mailbox_k[i].visited = 0;
+            mailbox_k[i].status = MBOX_CLOSE;
+            mthread_cond_init(&mailbox_k[i].empty);
+            mthread_cond_init(&mailbox_k[i].full);
+        }
+    
+        // Wake up slave core
+        smp_init();
+        wakeup_other_hart();
+    }else
+    {   /* slave core*/
+        setup_exception();
     }
-    //init mailbox_k
-    for(i=0;i<MAX_MBOX_NUM;i++){
-        mailbox_k[i].index = 0;
-        mailbox_k[i].visited = 0;
-        mailbox_k[i].status = MBOX_CLOSE;
-        mthread_cond_init(&mailbox_k[i].empty);
-        mthread_cond_init(&mailbox_k[i].full);
-    }
-
-    // TODO:
-    // Setup timer interrupt and enable all interrupt
+    // TODO: Setup timer interrupt and enable all interrupt
     reset_irq_timer();
     enable_interrupt();
-    
+
     while (1) {
         // (QAQQQQQQQQQQQ)
         // If you do non-preemptive scheduling, you need to use it
