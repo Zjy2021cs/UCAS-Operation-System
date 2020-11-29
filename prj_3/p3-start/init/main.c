@@ -210,8 +210,8 @@ int main()
     printk("running cpu_id=%d\n",cpu_id);
     // TODO: Setup timer interrupt and enable all interrupt
     reset_irq_timer();
-    enable_interrupt();
     unlock_kernel();
+    enable_interrupt();
     while (1) {
         // (QAQQQQQQQQQQQ)
         // If you do non-preemptive scheduling, you need to use it

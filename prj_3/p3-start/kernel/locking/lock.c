@@ -37,7 +37,6 @@ void do_mutex_lock_acquire(mutex_lock_t *lock)
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
     if(lock->lock.status==LOCKED){
-        current_running[cpu_id]->status = TASK_BLOCKED;
         do_block(&current_running[cpu_id]->list,&lock->block_queue);
     }
     else{
@@ -65,6 +64,12 @@ void do_mutex_lock_release(mutex_lock_t *lock)
         }
     }                                                        //P3-task1
     if(!list_empty(&lock->block_queue)){
+        do_unblock(lock->block_queue.prev);
+    }
+    lock->lock.status=UNLOCKED;
+    do_scheduler();
+    /*P2-version
+    if(!list_empty(&lock->block_queue)){
         pcb_t *unblock_pcb;
         unblock_pcb = list_entry(lock->block_queue.prev, pcb_t, list);
         unblock_pcb->locks[unblock_pcb->lock_num++]=lock;
@@ -72,5 +77,5 @@ void do_mutex_lock_release(mutex_lock_t *lock)
         lock->lock.status=LOCKED;
     }
     else
-        lock->lock.status=UNLOCKED;
+        lock->lock.status=UNLOCKED;*/
 }

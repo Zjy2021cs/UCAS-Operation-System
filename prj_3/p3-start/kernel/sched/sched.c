@@ -84,6 +84,9 @@ void do_sleep(uint32_t sleep_time)
 void do_block(list_node_t *pcb_node, list_head *queue)
 {
     // TODO: block the pcb task into the block queue
+    pcb_t *block_pcb;
+    block_pcb = list_entry(pcb_node, pcb_t, list);
+    block_pcb->status = TASK_BLOCKED;   
     list_add(pcb_node,queue);
     do_scheduler();
 }
@@ -258,7 +261,7 @@ int do_kill(pid_t pid){
     /* 修改状态 */
     killing_pcb->status = TASK_EXITED;       //or zombie????????????????????????????????????????????????????????
     killing_pcb->pid = 0;
-    
+
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
     if(killing_pcb==current_running[cpu_id])
@@ -277,7 +280,6 @@ int do_waitpid(pid_t pid){
     }
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
-    current_running[cpu_id]->status = TASK_BLOCKED;
     do_block(&current_running[cpu_id]->list, &pcb[i].wait_list);
     return 1;
 }
@@ -311,6 +313,7 @@ int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex){
     cpu_id = get_current_cpu_id();
     current_running[cpu_id]->status = TASK_BLOCKED;    
     list_add(&current_running[cpu_id]->list,&cond->wait_queue);
+
     do_binsemop(mutex->lock_id, BINSEM_OP_UNLOCK);
     do_scheduler();
     do_binsemop(mutex->lock_id, BINSEM_OP_LOCK);

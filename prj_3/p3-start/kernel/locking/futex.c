@@ -54,7 +54,6 @@ void futex_wait(volatile uint64_t *val_addr, uint64_t val)
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
     if (*val_addr == val) {
-        current_running[cpu_id]->status = TASK_BLOCKED;     //my do_block don't change pcb_state
         do_block(&current_running[cpu_id]->list, &node->block_queue);
         //do_scheduler();                           //my do_block include do_scheduler
     }
