@@ -22,7 +22,7 @@ void test_affinity(void)
     for (int i = 0; i < INTEGER_TEST_NUM; ++i) {
         pids[i] = sys_spawn(&task_test, 2 + i, ENTER_ZOMBIE_ON_EXIT);
         printf("%d, ", pids[i]);
-    }
+    } 
     printf("}\n\r");
     for (int i = 0; i < INTEGER_TEST_NUM; ++i) {
         sys_waitpid(pids[i]);

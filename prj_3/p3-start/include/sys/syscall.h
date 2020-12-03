@@ -41,6 +41,8 @@ void sys_sleep(uint32_t time);
 int sys_kill(pid_t pid);
 int sys_waitpid(pid_t pid);
 void sys_yield();
+void sys_taskset_p(int mask, int pid);
+void sys_taskset_exec(int mask, task_info_t *info, spawn_mode_t mode);
 
 void sys_futex_wait(volatile uint64_t *val_addr, uint64_t val);
 void sys_futex_wakeup(volatile uint64_t *val_addr, int num_wakeup);

@@ -50,10 +50,34 @@ void do_scheduler(void)
         }
     }
     
-    if(!list_empty(&ready_queue)){
-        current_running[cpu_id] = list_entry(ready_queue.prev, pcb_t, list);
-        list_del(ready_queue.prev);
+    if(list_empty(&ready_queue)){
+        if(cpu_id==0){
+            current_running[cpu_id] = &pid0_pcb_m;
+        }else{
+            current_running[cpu_id] = &pid0_pcb_s;
+        }
+    }else{
+        pcb_t *tail_pcb = list_entry(ready_queue.next, pcb_t, list);
+        while(!list_empty(&ready_queue)){        //P3-task5? 
+            pcb_t *ready_pcb = list_entry(ready_queue.prev, pcb_t, list);
+            list_del(ready_queue.prev);
+            if((ready_pcb->mask==3) || (ready_pcb->mask==cpu_id+1)){
+                current_running[cpu_id] = ready_pcb;
+                break;
+            }else{
+                list_add(&ready_pcb->list,&ready_queue);
+                if(ready_pcb==tail_pcb){
+                   if(cpu_id==0){
+                        current_running[cpu_id] = &pid0_pcb_m;
+                    }else{
+                        current_running[cpu_id] = &pid0_pcb_s;
+                    }
+                    break; 
+                }
+            }
+        }
     }
+    
     current_running[cpu_id]->status=TASK_RUNNING;
 
     // restore the current_runnint's cursor_x and cursor_y
@@ -179,6 +203,9 @@ pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode){
     new_pcb->cursor_x = 0;
     new_pcb->cursor_y = 0;
     new_pcb->lock_num = 0;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    new_pcb->mask = current_running[cpu_id]->mask;
     list_add(&new_pcb->list, &ready_queue);
     init_list_head(&new_pcb->wait_list);
     
@@ -290,13 +317,19 @@ void do_process_show(){
     i=j=0;
     for(;i<process_num;i++){
         if(pcb[i].status==TASK_RUNNING){
-            prints("[%d] PID : %d STATUS : RUNNING\n",j,pcb[i].pid);
+            int run_core;
+            if(&pcb[i]==current_running[0]){
+                run_core=0;
+            }else{
+                run_core=1;
+            }
+            prints("[%d] PID : %d STATUS : RUNNING MASK: 0x%d on Core %d\n",j,pcb[i].pid,pcb[i].mask,run_core);
             j++;
         }else if(pcb[i].status==TASK_READY){
-            prints("[%d] PID : %d STATUS : READY\n",j,pcb[i].pid);
+            prints("[%d] PID : %d STATUS : READY MASK: 0x%d\n",j,pcb[i].pid,pcb[i].mask);
             j++;
         }else if(pcb[i].status==TASK_BLOCKED){
-            prints("[%d] PID : %d STATUS : BLOCKED\n",j,pcb[i].pid);
+            prints("[%d] PID : %d STATUS : BLOCKED MASK: 0x%d\n",j,pcb[i].pid,pcb[i].mask);
             j++;
         }
     }
@@ -406,4 +439,48 @@ void do_mbox_recv(int mailbox_id, void *msg, int msg_length){
         ((char*)msg)[i] = mailbox_k[mailbox_id].msg[--mailbox_k[mailbox_id].index];
     }
     do_cond_broadcast(&mailbox_k[mailbox_id].full);     //release all tasks waitin for send msg             
+}
+
+//P3-task5-----------------------------------------------------------------------------------------------------------
+void do_taskset_p(int mask, pid_t pid){
+    int i;
+    for(i=0; (pcb[i].pid!=pid) && i<NUM_MAX_TASK; i++);
+    if (i==NUM_MAX_TASK)
+    {
+        return;
+    }
+    pcb_t *taskset_pcb = &pcb[i];
+    taskset_pcb->mask = mask;
+}
+void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode){
+    pcb_t *new_pcb;
+    if (!list_empty(&exit_queue))
+    {
+        new_pcb = list_entry(exit_queue.prev, pcb_t, list);
+        list_del(exit_queue.prev);
+    }else
+    {
+        new_pcb = &pcb[process_num++];
+    }
+    
+    if((new_pcb->kernel_stack_base=reuse())==0){
+        new_pcb->kernel_stack_base = allocPage(1) + PAGE_SIZE;
+    }
+    if((new_pcb->user_stack_base=reuse())==0){
+        new_pcb->user_stack_base = allocPage(1) + PAGE_SIZE;
+    }
+    new_pcb->kernel_sp =  new_pcb->kernel_stack_base;
+    new_pcb->user_sp = new_pcb->user_stack_base;
+    init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, task->entry_point, NULL, new_pcb);
+    new_pcb->kernel_sp = new_pcb->kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
+    new_pcb->pid = process_id++;
+    new_pcb->type = task->type;
+    new_pcb->status = TASK_READY;
+    new_pcb->mode = mode;
+    new_pcb->cursor_x = 0;
+    new_pcb->cursor_y = 0;
+    new_pcb->lock_num = 0;
+    new_pcb->mask = mask;
+    list_add(&new_pcb->list, &ready_queue);
+    init_list_head(&new_pcb->wait_list);
 }

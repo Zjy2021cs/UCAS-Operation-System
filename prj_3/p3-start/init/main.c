@@ -96,6 +96,7 @@ static void init_pcb()
     pcb[0].cursor_x = 0;
     pcb[0].cursor_y = 0;
     pcb[0].lock_num = 0;
+    pcb[0].mask = 3;
     //将pcb入就绪队列（拉链赋值list）
     list_add(&pcb[0].list, &ready_queue);
     init_list_head(&pcb[0].wait_list);
@@ -121,6 +122,8 @@ static void init_syscall(void)
     syscall[SYSCALL_PS]             = (long int (*)())&do_process_show;
     syscall[SYSCALL_GETPID]         = (long int (*)())&do_getpid;
     syscall[SYSCALL_YIELD]          = (long int (*)())&do_scheduler;
+    syscall[SYSCALL_TASKSET_P]      = (long int (*)())&do_taskset_p;
+    syscall[SYSCALL_TASKSET_EXEC]   = (long int (*)())&do_taskset_exec;
 
     syscall[SYSCALL_FUTEX_WAIT]     = (long int (*)())&futex_wait;
     syscall[SYSCALL_FUTEX_WAKEUP]   = (long int (*)())&futex_wakeup;

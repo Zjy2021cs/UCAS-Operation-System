@@ -45,13 +45,15 @@ struct task_info task13 = {(uintptr_t)&SunQuan, USER_PROCESS};
 struct task_info task14 = {(uintptr_t)&LiuBei, USER_PROCESS};
 struct task_info task15 = {(uintptr_t)&CaoCao, USER_PROCESS};
 struct task_info task_test_multicore = {(uintptr_t)&test_multicore, USER_PROCESS};
+struct task_info task_affinity = {(uintptr_t)&test_affinity, USER_PROCESS};
 
 static struct task_info *test_tasks[16] = {&task_test_waitpid,
                                            &task_test_semaphore,
                                            &task_test_condition,
                                            &task_test_barrier,
                                            &task13, &task14, &task15,
-                                           &task_test_multicore};
+                                           &task_test_multicore,
+                                           &task_affinity};
 static int num_test_tasks = 8;
 
 #define SHELL_BEGIN 25
@@ -66,13 +68,52 @@ char getchar_uart(){
 
 // TODO: ps, exec, kill, exit, clear, wait
 void parse_command(char buffer[]){
-    char argv[2][8];
+    char argv[4][8];
     int i=0,j=0;
     int num;
     while(buffer[j]!='\0' && buffer[j]!=' '){
         argv[0][i++]=buffer[j++];
     }
     argv[0][i]='\0';
+
+    int k=j;
+    if(!strcmp(argv[0],"taskset")){
+        int count_arg=0;
+        while(buffer[k++]!='\0'){
+            i=0;count_arg++;
+            while(buffer[k]!='\0' && buffer[k]!=' '){
+                argv[count_arg][i++] = buffer[k++];
+            }
+            argv[count_arg][i]='\0';
+        }
+        if(!strcmp(argv[1],"-p")){       //taskset -p mask pid
+            int mask, pid;
+            if(!strcmp(argv[2],"0x1")){
+                mask = 1;
+            }else if(!strcmp(argv[2],"0x2")){
+                mask = 2;
+            }else{
+                mask = 3;
+            }
+            pid = atoi(argv[3]);
+            sys_taskset_p(mask,pid);
+            printf("%s\n",buffer);
+        }else{                           //taskset mask num
+            int mask;
+            if(!strcmp(argv[1],"0x1")){
+                mask = 1;
+            }else if(!strcmp(argv[1],"0x2")){
+                mask = 2;
+            }else{
+                mask = 3;
+            }
+            num = atoi(argv[2]);
+            sys_taskset_exec(mask,test_tasks[num],AUTO_CLEANUP_ON_EXIT);
+            printf("exec process[%d]\n",num);
+        }
+        return;
+    }
+
     if(buffer[j++]==' '){
         i=0;
         while(buffer[j]!='\0'){
@@ -122,7 +163,7 @@ void test_shell()
     printf("------------------- COMMAND -------------------\n");
     printf("> root@Luoshan_OS: ");
 
-    char buffer[16];
+    char buffer[20];
     int i = 0;
     while (1)
     {

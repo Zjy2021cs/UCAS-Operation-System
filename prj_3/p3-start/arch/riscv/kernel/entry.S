@@ -124,7 +124,7 @@ _save_context:
 
 //允许抢占
 ENTRY(enable_preempt)
-  ld t1, current_running
+  /*ld t1, current_running
   csrr a0, CSR_MHARTID
   bnez a0, slave_current
   ld t1, 0(t1)
@@ -140,13 +140,13 @@ next_e:
   jr ra
 do_enable:
   not t0, x0
-  csrs CSR_SIE, t0    
+  csrs CSR_SIE, t0    */
   jr ra
 ENDPROC(enable_preempt)
 
 //不允许抢占
 ENTRY(disable_preempt)
-  //csrw CSR_SIE, zero
+  /*
   ld t1, current_running
   csrr a0, CSR_MHARTID
   bnez a0, slave_current_d
@@ -157,7 +157,7 @@ slave_current_d:
 next_d:
   ld t0, PCB_PREEMPT_COUNT(t1)
   addi t0, t0, 1
-  sd t0, PCB_PREEMPT_COUNT(t1)
+  sd t0, PCB_PREEMPT_COUNT(t1)*/
   jr ra
 ENDPROC(disable_preempt)
 
@@ -236,7 +236,7 @@ ENDPROC(ret_from_exception)
 //例外（异常中断）处理总入口
 ENTRY(exception_handler_entry)
   SAVE_CONTEXT
-  call lock_kernel
+  //call lock_kernel
   csrw CSR_SSCRATCH, x0
 
   /* Load the global pointer */
@@ -245,6 +245,7 @@ ENTRY(exception_handler_entry)
   la gp, __global_pointer$
   .option pop
 
+  call lock_kernel
   /* TODO: load ret_from_exception into $ra
    * so that we can return to ret_from_exception
    * when interrupt_help complete.

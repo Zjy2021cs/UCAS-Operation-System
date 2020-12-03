@@ -43,6 +43,14 @@ void sys_sleep(uint32_t time)
     invoke_syscall(SYSCALL_SLEEP, time, IGNORE, IGNORE);
 }
 
+void sys_taskset_p(int mask, int pid){
+    invoke_syscall(SYSCALL_TASKSET_P, mask, pid, IGNORE);
+}
+
+void sys_taskset_exec(int mask, task_info_t *info, spawn_mode_t mode){
+    invoke_syscall(SYSCALL_TASKSET_EXEC, mask, (uintptr_t)info, mode);
+}
+
 int  binsemget(int key)
 {
     return invoke_syscall(SYSCALL_BINSEMGET, key, IGNORE, IGNORE);

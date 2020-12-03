@@ -119,6 +119,8 @@ typedef struct pcb
     /* locks pcb acquired */
     int lock_num;
     mutex_lock_t *locks[10];
+    /* can run on witch core*/
+    int mask;
 } pcb_t;
 
 /* task information, used to init PCB */
@@ -167,6 +169,8 @@ extern int do_kill(pid_t pid);
 extern int do_waitpid(pid_t pid);
 extern void do_process_show();
 extern pid_t do_getpid();
+extern void do_taskset_p(int mask, pid_t pid);
+extern void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode);
 
 //P2-task4
 #define NUM_MAX_SEM  16
