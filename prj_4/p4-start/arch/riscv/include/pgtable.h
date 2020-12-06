@@ -11,10 +11,10 @@
 #define SATP_MODE_SHIFT 60lu
 
 #define NORMAL_PAGE_SHIFT 12lu
-#define NORMAL_PAGE_SIZE (1lu << NORMAL_PAGE_SHIFT)
+#define NORMAL_PAGE_SIZE (1lu << NORMAL_PAGE_SHIFT)         //4KB
 #define LARGE_PAGE_SHIFT 21lu
-#define LARGE_PAGE_SIZE (1lu << NORMAL_PAGE_SHIFT)
-
+#define LARGE_PAGE_SIZE (1lu << LARGE_PAGE_SHIFT)           //2MB for kernel load
+ 
 /*
  * Flush entire local TLB.  'sfence.vma' implicitly fences with the instruction
  * cache as well, so a 'fence.i' is not necessary.
@@ -132,7 +132,11 @@ static inline void set_attribute(PTE *entry, uint64_t bits)
 
 static inline void clear_pgdir(uintptr_t pgdir_addr)
 {
-    // TODO:
+    // TODO: clear the page directory 4KB from pgdir_addr
+    int i;
+    for(i=0;i<NORMAL_PAGE_SIZE;i+=8){
+        *((uint64_t *)(pgdir_addr+i)) = 0;
+    }
 }
 
 #endif  // PGTABLE_H

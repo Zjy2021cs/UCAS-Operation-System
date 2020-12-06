@@ -33,6 +33,9 @@
 #include <stdint.h>
 #include <alloca.h>
 
+#define SCREEN_WIDTH    80
+#define SCREEN_HEIGHT   50
+
 // test exit
 void test_shell_task1()
 {
@@ -85,27 +88,97 @@ void test_shell_task3()
 static int shell_tail = 0;
 static char shell_buff[SHELL_BUFF_SIZE];
 
-/*struct task_info task_test_waitpid = {
-    (uintptr_t)&wait_exit_task, USER_PROCESS};
-struct task_info task_test_semaphore = {
-    (uintptr_t)&semaphore_add_task1, USER_PROCESS};
-struct task_info task_test_condition = {
-    (uintptr_t)&test_condition, USER_PROCESS};
-struct task_info task_test_barrier = {
-    (uintptr_t)&test_barrier, USER_PROCESS};
+/* TODO: ps, exec, kill, exit, clear, wait , taskset
+void parse_command(char buffer[]){
+    char argv[4][8];
+    int i=0,j=0;
+    int num;
+    while(buffer[j]!='\0' && buffer[j]!=' '){
+        argv[0][i++]=buffer[j++];
+    }
+    argv[0][i]='\0';
 
-struct task_info task13 = {(uintptr_t)&SunQuan, USER_PROCESS};
-struct task_info task14 = {(uintptr_t)&LiuBei, USER_PROCESS};
-struct task_info task15 = {(uintptr_t)&CaoCao, USER_PROCESS};
+    int k=j;
+    if(!strcmp(argv[0],"taskset")){
+        int count_arg=0;
+        while(buffer[k++]!='\0'){
+            i=0;count_arg++;
+            while(buffer[k]!='\0' && buffer[k]!=' '){
+                argv[count_arg][i++] = buffer[k++];
+            }
+            argv[count_arg][i]='\0';
+        }
+        if(!strcmp(argv[1],"-p")){       //taskset -p mask pid
+            int mask, pid;
+            if(!strcmp(argv[2],"0x1")){
+                mask = 1;
+            }else if(!strcmp(argv[2],"0x2")){
+                mask = 2;
+            }else{
+                mask = 3;
+            }
+            pid = atoi(argv[3]);
+            sys_taskset_p(mask,pid);
+            printf("%s\n",buffer);
+        }else{                           //taskset mask num
+            int mask;
+            if(!strcmp(argv[1],"0x1")){
+                mask = 1;
+            }else if(!strcmp(argv[1],"0x2")){
+                mask = 2;
+            }else{
+                mask = 3;
+            }
+            num = atoi(argv[2]);
+            sys_taskset_exec(mask,test_tasks[num],AUTO_CLEANUP_ON_EXIT);
+            printf("exec process[%d]\n",num);
+        }
+        return;
+    }
 
-static struct task_info *test_tasks[16] = {&task_test_waitpid,
-                                           &task_test_semaphore,
-                                           &task_test_condition,
-                                           &task_test_barrier,
-                                           &task13, &task14, &task15};
-                                           */
+    if(buffer[j++]==' '){
+        i=0;
+        while(buffer[j]!='\0'){
+            argv[1][i++]=buffer[j++];
+        }
+        argv[1][i]='\0';
+        num = atoi(argv[1]);
+    }
+
+    if(!strcmp(argv[0],"ps")){
+        sys_process_show();
+    }else if(!strcmp(argv[0],"exec")){
+        pid_t pid;
+        pid = sys_spawn(test_tasks[num], NULL, AUTO_CLEANUP_ON_EXIT);//?????????????????????????????????????
+        printf("exec process[%d]\n",pid);
+    }else if(!strcmp(argv[0],"kill")){
+        int killed;
+        killed = sys_kill(num);
+        if(killed){
+            printf("process[%d] has been killed.\n",num);
+        }else{
+            printf("error: process[%d] is not running.\n",num);
+        }
+    }else if(!strcmp(argv[0],"exit")){
+        sys_exit();
+    }else if(!strcmp(argv[0],"clear")){
+        sys_screen_clear();
+        sys_move_cursor(1, SHELL_BEGIN);
+        printf("------------------- COMMAND -------------------\n");
+    }else if(!strcmp(argv[0],"wait")){
+        int waiting;
+        waiting = sys_waitpid(num);
+        if(waiting){
+            printf("waiting for process[%d]...\n",num);
+        }else{
+            printf("error: process[%d] is not found.\n",num);
+        }
+    }else{
+        printf("Unknown command!\n");
+    }
+}*/
+
 // static int start_test_task = 3;
-
 int main()
 {
     char ch;
@@ -115,21 +188,17 @@ int main()
 
     sys_move_cursor(0, SCREEN_HEIGHT / 2);
     printf("------------------- COMMAND -------------------\n");
-    printf("> root@UCAS_OS: ");
+    printf("> root@Luoshan_OS: ");
 
     while (1)
     {
         command = 0;
-
         // read UART port
         ch = sys_get_char();
-
         if (ch == 8 || ch == 127) // Backspace
         {
             if (shell_tail > 0)
-            {
                 shell_tail--;
-            }
             printf("%c", ch);
         }
         else if (ch == 13) // Enter
@@ -168,9 +237,7 @@ int main()
                 for (i = 4; i < l; i++)
                 {
                     if (shell_buff[i] != ' ' && shell_buff[i-1] == ' ')
-                    {
                         argc++;
-                    }
                 }
                 strcpy(_arg_buf, &shell_buff[4]);
                 int tmp_argc = 0;
@@ -197,9 +264,7 @@ int main()
                 for (i = 4; i < l; i++)
                 {
                     if (shell_buff[i] != ' ')
-                    {
                         break;
-                    }
                 }
 
                 while ((i < l) && (shell_buff[i] != ' '))
@@ -222,10 +287,9 @@ int main()
                 printf("------------------- COMMAND -------------------\n");
             }
 
-            printf("> root@UCAS_OS: ");
+            printf("> root@Luoshan_OS: ");
             shell_tail = 0;
         }
-    }
-    
+    }    
     return 0;
 }

@@ -1,0 +1,66 @@
+
+bootblock:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000050200000 <_ftext>:
+    50200000:	0ff0000f          	fence
+    50200004:	842a                	mv	s0,a0
+    50200006:	84ae                	mv	s1,a1
+    50200008:	4529                	li	a0,10
+    5020000a:	4885                	li	a7,1
+    5020000c:	00000073          	ecall
+    50200010:	0001                	nop
+    50200012:	8522                	mv	a0,s0
+    50200014:	e939                	bnez	a0,5020006a <secondary>
+    50200016:	00000517          	auipc	a0,0x0
+    5020001a:	07a50513          	addi	a0,a0,122 # 50200090 <__DATA_BEGIN__>
+    5020001e:	48a5                	li	a7,9
+    50200020:	00000073          	ecall
+    50200024:	0001                	nop
+    50200026:	50201537          	lui	a0,0x50201
+    5020002a:	04000593          	li	a1,64
+    5020002e:	4605                	li	a2,1
+    50200030:	502002b7          	lui	t0,0x50200
+    50200034:	1fc2829b          	addiw	t0,t0,508
+    50200038:	00029683          	lh	a3,0(t0) # 50200000 <_ftext>
+    5020003c:	82aa                	mv	t0,a0
+    5020003e:	6321                	lui	t1,0x8
+    50200040:	00d5dd63          	bge	a1,a3,5020005a <read_remain_sector>
+
+0000000050200044 <read_64_sector>:
+    50200044:	48ad                	li	a7,11
+    50200046:	00000073          	ecall
+    5020004a:	0001                	nop
+    5020004c:	00530533          	add	a0,t1,t0
+    50200050:	82aa                	mv	t0,a0
+    50200052:	962e                	add	a2,a2,a1
+    50200054:	8e8d                	sub	a3,a3,a1
+    50200056:	fed5c7e3          	blt	a1,a3,50200044 <read_64_sector>
+
+000000005020005a <read_remain_sector>:
+    5020005a:	85b6                	mv	a1,a3
+    5020005c:	48ad                	li	a7,11
+    5020005e:	00000073          	ecall
+    50200062:	0001                	nop
+    50200064:	502012b7          	lui	t0,0x50201
+    50200068:	8282                	jr	t0
+
+000000005020006a <secondary>:
+    5020006a:	10401073          	csrw	sie,zero
+    5020006e:	14401073          	csrw	sip,zero
+    50200072:	502012b7          	lui	t0,0x50201
+    50200076:	10529073          	csrw	stvec,t0
+    5020007a:	4289                	li	t0,2
+    5020007c:	10429073          	csrw	sie,t0
+    50200080:	4289                	li	t0,2
+    50200082:	1002a073          	csrs	sstatus,t0
+
+0000000050200086 <wait_for_wakeup>:
+    50200086:	10500073          	wfi
+    5020008a:	bff5                	j	50200086 <wait_for_wakeup>
+
+000000005020008c <stop>:
+    5020008c:	a001                	j	5020008c <stop>
+    5020008e:	0001                	nop

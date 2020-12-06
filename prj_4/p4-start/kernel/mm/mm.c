@@ -9,9 +9,13 @@ ptr_t memCurr = FREEMEM;
 
 static LIST_HEAD(freePageList);
 
+//分配numPage页空间，返回低地址，高地址存放在memCurr中
 ptr_t allocPage()
 {
-    // TODO:
+    // align PAGE_SIZE
+    ptr_t ret = ROUND(memCurr, PAGE_SIZE);
+    memCurr = ret + PAGE_SIZE;
+    return ret;
 }
 
 void freePage(ptr_t baseAddr)
@@ -21,7 +25,9 @@ void freePage(ptr_t baseAddr)
 
 void *kmalloc(size_t size)
 {
-    // TODO(if you need):
+    ptr_t ret = ROUND(memCurr, 4);
+    memCurr = ret + size;
+    return (void*)ret;
 }
 
 uintptr_t shm_page_get(int key)
@@ -29,7 +35,7 @@ uintptr_t shm_page_get(int key)
     // TODO(c-core):
 }
 
-void shm_page_dt(uintptr_t addr)
+void shm_page_dt(uintptr_t addr) 
 {
     // TODO(c-core):
 }

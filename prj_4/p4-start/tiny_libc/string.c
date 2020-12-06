@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdint.h>
 
+//string operation for user
 size_t strlen(const char *src)
 {
     int i;
@@ -75,4 +76,13 @@ char *strcat(char *dest, const char *src)
     *dest = '\0';
 
     return tmp;
+}
+
+int atoi(const char *str){
+    int num=0;
+    int i=0;
+    while(str[i]!='\0'){
+        num = num*10 + str[i++] - '0';
+    }
+    return num;
 }

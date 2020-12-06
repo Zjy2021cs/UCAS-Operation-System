@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-HOST_CC = gcc
+HOST_CC = gcc -O0
 CROSS_PREFIX = riscv64-unknown-linux-gnu-
 CC = ${CROSS_PREFIX}gcc
 AR = ${CROSS_PREFIX}ar
@@ -10,8 +10,8 @@ USER_LDFLAGS = -L./ -ltiny_libc
 DISK = /dev/sdc
 
 BOOTLOADER_ENTRYPOINT = 0x50200000
-START_ENTRYPOINT = 0x50301000
-KERNEL_ENTRYPOINT = 0xffffffc050400000
+START_ENTRYPOINT = 0x50201000
+KERNEL_ENTRYPOINT = 0xffffffc050210000
 
 ARCH = riscv
 ARCH_DIR = ./arch/$(ARCH)
@@ -22,7 +22,7 @@ USER_LDFLAGS += $(ARCH_DIR)/crt0.o
 SRC_BOOT 	= $(ARCH_DIR)/boot/bootblock.S
 SRC_HEAD    = $(ARCH_DIR)/kernel/head.S $(ARCH_DIR)/kernel/boot.c payload.c ./libs/string.c
 SRC_ARCH	= $(ARCH_DIR)/kernel/trap.S $(ARCH_DIR)/kernel/entry.S $(ARCH_DIR)/kernel/start.S $(ARCH_DIR)/sbi/common.c $(ARCH_DIR)/kernel/smp.S
-SRC_DRIVER	= ./drivers/screen.c ./drivers/fdt.c
+SRC_DRIVER	= ./drivers/screen.c
 SRC_INIT 	= ./init/main.c
 SRC_INT		= ./kernel/irq/irq.c
 SRC_LOCK	= ./kernel/locking/lock.c ./kernel/locking/futex.c
