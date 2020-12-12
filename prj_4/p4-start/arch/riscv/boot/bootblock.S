@@ -1,12 +1,12 @@
 #include <asm/sbidef.h>
 #include <asm/sbiasm.h>
-#include <csr.h> 
+#include <csr.h>  
 
 // 1. kernel address (move kernel to here ~)
-.equ kernel, 0x50201000 
+.equ kernel, 0x50203000
 
 // 2. kernel main address (jmp here to start kernel main!)
-.equ kernel_main, 0x50201000
+.equ kernel_main, 0x50203000
 
 // 3. os size location (get the size of your OS here)
 .equ os_size_loc, 0x502001fc

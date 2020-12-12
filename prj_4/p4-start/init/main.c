@@ -41,6 +41,8 @@
 #include <os/smp.h>
 
 #include <pgtable.h>
+#include <user_programs.h>
+#include <os/elf.h>
 
 extern void ret_from_exception();
 extern void __global_pointer$();
@@ -68,7 +70,7 @@ void init_pcb_stack(
     pt_regs->regs[1]  = (reg_t)entry_point;                                                  //ra
     pt_regs->regs[10] = (reg_t)arg;                                                          //a0
     pt_regs->sepc = (reg_t)entry_point;      
-    pt_regs->sstatus = SR_SPIE; //user_process:SPP==0;kernel_process:SPP=1 ??? 
+    pt_regs->sstatus = SR_SPIE | SR_SUM; //user_process:SPP==0;kernel_process:SPP=1 ??? 
 
     switchto_context_t *sw_regs = (switchto_context_t *)(kernel_stack - sizeof(regs_context_t) - sizeof(switchto_context_t));
     sw_regs->regs[0] = (reg_t)&ret_from_exception;                                          //ra
@@ -81,12 +83,23 @@ void init_pcb_stack(
 static void init_pcb()
 { 
     //only init shell to spawn other tasks
-    /*初始化栈内容
-    pcb[0].kernel_stack_base = allocPage() + PAGE_SIZE;
-    pcb[0].user_stack_base = allocPage() + PAGE_SIZE;
+    //初始化栈内容        
+    //............alloc page dir for process
+    pcb[0].pgdir = allocPage();
+    clear_pgdir(pcb[0].pgdir);
+    pcb[0].kernel_stack_base = allocPage() + PAGE_SIZE;   //a kernel virtual addr, has been mapped
+    pcb[0].user_stack_base = USER_STACK_ADDR;             //a user virtual addr, not mapped
+    //............map user_stack_page to phaddr
+    uintptr_t kva_stack = alloc_page_helper(pcb[0].user_stack_base-0x1000, pcb[0].pgdir);
+    //............copy kernel pgdir map to pcb[0].pgdir
+    uintptr_t src_pgdir = PGDIR_PA + 0xffffffc000000000;
+    share_pgtable(pcb[0].pgdir, src_pgdir);
+    //load user elf file
+    unsigned file_len = *(elf_files[0].file_length);
+    user_entry_t entry_point = (user_entry_t)load_elf(elf_files[0].file_content, file_len, pcb[0].pgdir, alloc_page_helper);
     pcb[0].kernel_sp =  pcb[0].kernel_stack_base;
     pcb[0].user_sp = pcb[0].user_stack_base;
-    init_pcb_stack(pcb[0].kernel_sp, pcb[0].user_sp, (ptr_t)&test_shell, NULL, &pcb[0]);
+    init_pcb_stack(pcb[0].kernel_sp, pcb[0].user_sp, (ptr_t)entry_point, NULL, &pcb[0]); 
     pcb[0].kernel_sp = pcb[0].kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
     //初始化pid,type,status,cursor
     pcb[0].pid = process_id++;
@@ -100,7 +113,7 @@ static void init_pcb()
     //将pcb入就绪队列（拉链赋值list）
     list_add(&pcb[0].list, &ready_queue);
     init_list_head(&pcb[0].wait_list);
-    process_num++; */
+    process_num++; 
 
     /* remember to initialize `current_running`
      * TODO:*/
@@ -120,13 +133,15 @@ static void init_syscall(void)
     syscall[SYSCALL_KILL]           = (long int (*)())&do_kill;
     syscall[SYSCALL_WAITPID]        = (long int (*)())&do_waitpid;
     syscall[SYSCALL_PS]             = (long int (*)())&do_process_show;
+    syscall[SYSCALL_EXEC]           = (long int (*)())&do_exec;
+    syscall[SYSCALL_SHOW_EXEC]      = (long int (*)())&do_show_exec;
     syscall[SYSCALL_GETPID]         = (long int (*)())&do_getpid;
     syscall[SYSCALL_YIELD]          = (long int (*)())&do_scheduler;
-    syscall[SYSCALL_TASKSET_P]      = (long int (*)())&do_taskset_p;
-    syscall[SYSCALL_TASKSET_EXEC]   = (long int (*)())&do_taskset_exec;
-
+    
     syscall[SYSCALL_FUTEX_WAIT]     = (long int (*)())&futex_wait;
     syscall[SYSCALL_FUTEX_WAKEUP]   = (long int (*)())&futex_wakeup;
+    syscall[SYSCALL_TASKSET_P]      = (long int (*)())&do_taskset_p;
+    syscall[SYSCALL_TASKSET_EXEC]   = (long int (*)())&do_taskset_exec;
 
     syscall[SYSCALL_WRITE]          = (long int (*)())&screen_write;
     syscall[SYSCALL_READ]           = (long int (*)())&sbi_console_getchar; 
@@ -203,7 +218,7 @@ int main()
         wakeup_other_hart();*/
         lock_kernel();
         //cancle temp mapping for 50200000
-        uintptr_t pgdir = PGDIR_PA+8;
+        uintptr_t pgdir = PGDIR_PA+8+0xffffffc000000000;
         *(PTE *)pgdir = 0;
         /*try slave core only.........
         unlock_kernel();

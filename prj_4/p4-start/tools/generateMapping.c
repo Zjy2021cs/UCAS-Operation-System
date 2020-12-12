@@ -189,7 +189,7 @@ int main(int argc, char* argv[])
         return -1;
     }
     write_to_file(&records, header, source);
-
+ 
     fclose(header);
     fclose(source);
 

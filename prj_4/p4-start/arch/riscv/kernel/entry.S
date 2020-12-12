@@ -164,6 +164,8 @@ ENDPROC(disable_preempt)
 //开中断
 ENTRY(enable_interrupt)
   li t0, SR_SIE
+  li t1, SR_SUM
+  or t0,t0,t1
   csrs CSR_SSTATUS, t0
   jr ra
 ENDPROC(enable_interrupt)
@@ -171,7 +173,9 @@ ENDPROC(enable_interrupt)
 //关中断
 ENTRY(disable_interrupt)
   li t0, SR_SIE
-  csrc CSR_SSTATUS, t0
+  li t1, SR_SUM
+  or t0,t0,t1
+  csrs CSR_SSTATUS, t0
   jr ra
 ENDPROC(disable_interrupt)
 
@@ -236,8 +240,9 @@ ENDPROC(ret_from_exception)
 //例外（异常中断）处理总入口
 ENTRY(exception_handler_entry)
   SAVE_CONTEXT
-  //call lock_kernel
   csrw CSR_SSCRATCH, x0
+  /*li t0, SR_SUM
+  csrw sstatus, t0*/
 
   /* Load the global pointer */
   .option push

@@ -40,12 +40,15 @@ void sys_exit(void);
 void sys_sleep(uint32_t time);
 int sys_kill(pid_t pid);
 int sys_waitpid(pid_t pid);
+pid_t sys_exec(const char *file_name, int argc, char* argv[], spawn_mode_t mode);
+void sys_show_exec();
+pid_t sys_getpid();
 void sys_yield();
-void sys_taskset_p(int mask, int pid);
-void sys_taskset_exec(int mask, task_info_t *info, spawn_mode_t mode);
 
 void sys_futex_wait(volatile uint64_t *val_addr, uint64_t val);
 void sys_futex_wakeup(volatile uint64_t *val_addr, int num_wakeup);
+void sys_taskset_p(int mask, int pid);
+void sys_taskset_exec(int mask, task_info_t *info, spawn_mode_t mode);
 
 void sys_write(char *);
 void sys_move_cursor(int, int);
@@ -56,7 +59,6 @@ long sys_get_tick();
 
 void sys_process_show(void);
 void sys_screen_clear(int line1, int line2);
-pid_t sys_getpid();
 int sys_get_char();
 
 int sys_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);

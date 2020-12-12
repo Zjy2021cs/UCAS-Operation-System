@@ -15,7 +15,7 @@
 #define BOOT_LOADER_SIG_1 0x55
 #define BOOT_LOADER_SIG_2 0xaa
 #define BOOT_MEM_LOC 0x7c00
-#define OS_MEM_LOC 0x50201000
+#define OS_MEM_LOC 0x50203000
 
 /* structure to store command line options */
 static struct {

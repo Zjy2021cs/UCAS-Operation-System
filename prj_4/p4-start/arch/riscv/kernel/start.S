@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2012 Regents of the University of California
- */
+ */ 
 
 #include <asm.h>
 #include <csr.h>
@@ -22,7 +22,11 @@ ENTRY(_start)
    * floating point in kernel space
    */
   li t0, SR_FS
-  csrc sstatus, t0
+  csrc CSR_SSTATUS, t0
+  /* set user sum */
+  li t0, SR_SUM
+  csrs CSR_SSTATUS, t0
+
 
   /* Load the global pointer */
   .option push

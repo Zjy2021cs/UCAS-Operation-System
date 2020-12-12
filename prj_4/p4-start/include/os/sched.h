@@ -99,8 +99,10 @@ typedef struct pcb
     /* locks pcb acquired */
     int lock_num;
     mutex_lock_t *locks[10];
-    /* can run on witch core*/
+    /* can run on witch core */
     int mask;
+    /* the kernel virtual address(phisical base address+ffffffc000000) of page directory */
+    uintptr_t pgdir;
 } pcb_t;
 
 /* task information, used to init PCB */
@@ -134,6 +136,13 @@ extern void do_scheduler(void);
 extern void do_block(list_node_t *, list_head *queue);
 extern void do_unblock(list_node_t *);
 
+extern void do_sleep(uint32_t);
+//P2-task4
+#define NUM_MAX_SEM  16
+extern mutex_lock_t binsem[NUM_MAX_SEM];
+int do_binsemget(int key);
+int do_binsemop(int binsem_id, int op);
+int do_binsem_destroy(int binsem_id);
 //P3-task1
 /* list_head of free_recycle space */
 extern ptr_t recycle_queue;         
@@ -143,21 +152,10 @@ extern list_head exit_queue;
 extern int process_num;
 extern pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode);
 extern void do_exit(void);
-extern void do_sleep(uint32_t);
-
 extern int do_kill(pid_t pid);
 extern int do_waitpid(pid_t pid);
 extern void do_process_show();
 extern pid_t do_getpid();
-extern void do_taskset_p(int mask, pid_t pid);
-extern void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode);
-
-//P2-task4
-#define NUM_MAX_SEM  16
-extern mutex_lock_t binsem[NUM_MAX_SEM];
-int do_binsemget(int key);
-int do_binsemop(int binsem_id, int op);
-int do_binsem_destroy(int binsem_id);
 //P3-task2
 int do_cond_wait(mthread_cond_t *cond, mthread_mutex_t *mutex);
 int do_cond_signal(mthread_cond_t *cond);
@@ -168,8 +166,11 @@ int do_mbox_open(char *name);
 void do_mbox_close(int mailbox_id);
 void do_mbox_send(int mailbox_id, void *msg, int msg_length);
 void do_mbox_recv(int mailbox_id, void *msg, int msg_length);
-
-//P4
+//P3-task5
+extern void do_taskset_p(int mask, pid_t pid);
+extern void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode);
+//P4-task2
+typedef void (*user_entry_t)(unsigned long,unsigned long,unsigned long);
 extern pid_t do_exec(const char* file_name, int argc, char* argv[], spawn_mode_t mode);
 extern void do_show_exec();
 #endif

@@ -138,7 +138,7 @@ static inline int is_elf_format(unsigned char *binary)
 
 /* prepare_page_for_kva should return a kernel virtual address */
 static inline uintptr_t load_elf(
-    unsigned char elf_binary[], unsigned length, uintptr_t pgdir,
+    unsigned char elf_binary[], unsigned length, uintptr_t pgdir, 
     uintptr_t (*prepare_page_for_va)(uintptr_t va, uintptr_t pgdir))
 {
     Elf64_Ehdr *ehdr = (Elf64_Ehdr *)elf_binary;

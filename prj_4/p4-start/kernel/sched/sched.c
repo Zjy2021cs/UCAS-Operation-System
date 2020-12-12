@@ -9,6 +9,9 @@
 #include <assert.h>
 #include <sys/binsem.h>
 #include <os/string.h>
+#include <pgtable.h>
+#include <user_programs.h>
+#include <os/elf.h>
 
 pcb_t pcb[NUM_MAX_TASK];
 const ptr_t pid0_stack_m = INIT_KERNEL_STACK_M + PAGE_SIZE;
@@ -79,6 +82,8 @@ void do_scheduler(void)
     }
     
     current_running[cpu_id]->status=TASK_RUNNING;
+    set_satp(SATP_MODE_SV39, current_running[cpu_id]->pid, (current_running[cpu_id]->pgdir-0xffffffc000000000)/4096);
+    local_flush_tlb_all();
 
     // restore the current_runnint's cursor_x and cursor_y
     vt100_move_cursor(current_running[cpu_id]->cursor_x,
@@ -125,13 +130,12 @@ void do_unblock(list_node_t *pcb_node)
     list_move(pcb_node,&ready_queue);
 }
 
-//for lock in user state
+//P2-task4 for lock in user state--------------------------------------------------------------------------------------
 int do_binsemget(int key)
 {
     int id = key%16;
     return id;
 }
-
 int do_binsemop(int binsem_id, int op)
 {
     mutex_lock_t *lock = &binsem[binsem_id];
@@ -142,7 +146,6 @@ int do_binsemop(int binsem_id, int op)
     }
     return 1;
 }
-
 int do_binsem_destroy(int binsem_id)
 {
     mutex_lock_t *lock = &binsem[binsem_id];
@@ -156,6 +159,7 @@ int do_binsem_destroy(int binsem_id)
         return 0;
     }
 }
+
 //P3-task1--------------------------------------------------------------------------------------------------------------
 /* 回收内存 */
 void recycle(long *stack_base){
@@ -211,7 +215,6 @@ pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode){
     
     return new_pcb->pid;
 }
-
 //exit from the current_running pcb, recycle the pcb/stack/lock
 void do_exit(void){
     uint64_t cpu_id;
@@ -236,7 +239,8 @@ void do_exit(void){
     
     /* 回收内存资源 */
     recycle((long *)exit_pcb->kernel_stack_base);
-    recycle((long *)exit_pcb->user_stack_base);
+    //recycle((long *)exit_pcb->user_stack_base);
+    freePage(exit_pcb->user_stack_base);
     //recycle itself or by father pcb?????zombie/auto!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     /* 回收pcb */
@@ -247,7 +251,6 @@ void do_exit(void){
     exit_pcb->pid = 0;
     do_scheduler();
 }
-
 //kill process[pid], recycle the pcb/stack/lock, get away from queues
 int do_kill(pid_t pid){
     int i;
@@ -279,7 +282,8 @@ int do_kill(pid_t pid){
     
     /* 回收内存资源 */
     recycle((long *)killing_pcb->kernel_stack_base);
-    recycle((long *)killing_pcb->user_stack_base);
+    //recycle((long *)killing_pcb->user_stack_base);
+    freePage(killing_pcb->user_stack_base);
     //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     /* 回收pcb */
@@ -296,7 +300,6 @@ int do_kill(pid_t pid){
 
     return 1;
 }
-
 //current_running task should wait until process[pid] finished
 int do_waitpid(pid_t pid){
     int i;
@@ -310,7 +313,6 @@ int do_waitpid(pid_t pid){
     do_block(&current_running[cpu_id]->list, &pcb[i].wait_list);
     return 1;
 }
-
 void do_process_show(){
     prints("[PROCESS TABLE]\n");
     int i,j;
@@ -334,7 +336,6 @@ void do_process_show(){
         }
     }
 }
-
 pid_t do_getpid(){
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
@@ -379,7 +380,6 @@ int do_barrier_wait(mthread_barrier_t *barrier){
     }
     return 1;
 }
-
 //P3-task3--------------------------------------------------------------------------------------------------------------
 mailbox_k_t mailbox_k[MAX_MBOX_NUM]; //kernel's mail box
 int do_mbox_open(char *name)
@@ -440,7 +440,6 @@ void do_mbox_recv(int mailbox_id, void *msg, int msg_length){
     }
     do_cond_broadcast(&mailbox_k[mailbox_id].full);     //release all tasks waitin for send msg             
 }
-
 //P3-task5-----------------------------------------------------------------------------------------------------------
 void do_taskset_p(int mask, pid_t pid){
     int i;
@@ -483,4 +482,61 @@ void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode){
     new_pcb->mask = mask;
     list_add(&new_pcb->list, &ready_queue);
     init_list_head(&new_pcb->wait_list);
+}
+
+//P4-task2------------------------------------------------------------------------------------------------------------
+pid_t do_exec(const char* file_name, int argc, char* argv[], spawn_mode_t mode){ //argc = num_of_arg; argv=[args]
+    pcb_t *new_pcb;
+    if (!list_empty(&exit_queue))
+    {
+        new_pcb = list_entry(exit_queue.prev, pcb_t, list);
+        list_del(exit_queue.prev);
+    }else
+    {
+        new_pcb = &pcb[process_num++];
+    }
+    
+    new_pcb->pgdir = allocPage();
+    clear_pgdir(new_pcb->pgdir);
+    if((new_pcb->kernel_stack_base=reuse())==0){
+        new_pcb->kernel_stack_base = allocPage() + PAGE_SIZE; //a kernel virtual addr, has been mapped
+    }
+    new_pcb->user_stack_base = USER_STACK_ADDR;             //a user virtual addr, not mapped
+    uintptr_t kva_stack = alloc_page_helper(new_pcb->user_stack_base-0x1000, new_pcb->pgdir);
+    uintptr_t src_pgdir = PGDIR_PA + 0xffffffc000000000;
+    share_pgtable(new_pcb->pgdir, src_pgdir);
+    //load user elf file
+    int i;
+    for(i=0;i<4;i++){
+        if(!kstrcmp(elf_files[i].file_name,file_name)){
+            break;
+        }
+    }
+    unsigned file_len = *(elf_files[i].file_length);
+    user_entry_t entry_point = (user_entry_t)load_elf(elf_files[i].file_content, file_len, new_pcb->pgdir, alloc_page_helper);
+    
+    new_pcb->kernel_sp =  new_pcb->kernel_stack_base;
+    new_pcb->user_sp = new_pcb->user_stack_base;
+    init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, (ptr_t)entry_point, argv, new_pcb);
+    new_pcb->kernel_sp = new_pcb->kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
+    new_pcb->pid = process_id++;
+    new_pcb->type = USER_PROCESS;
+    new_pcb->status = TASK_READY;
+    new_pcb->mode = mode;
+    new_pcb->cursor_x = 0;
+    new_pcb->cursor_y = 0;
+    new_pcb->lock_num = 0;
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    new_pcb->mask = current_running[cpu_id]->mask;
+    list_add(&new_pcb->list, &ready_queue);
+    init_list_head(&new_pcb->wait_list);
+    
+    return new_pcb->pid;
+}
+void do_show_exec(){     //ls
+    int i;
+    for (i=0;i<4;i++){
+        prints("%s\n",elf_files[i].file_name);
+    }
 }
