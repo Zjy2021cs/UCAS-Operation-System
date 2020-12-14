@@ -20,7 +20,7 @@ ptr_t allocPage()
         memCurr = ret + PAGE_SIZE;
     }else{
         ret = freePageList;
-        freePageList = *(long *)ret;
+        freePageList = *(long *)(ret-8);
     }
     return ret;
 }
@@ -28,7 +28,7 @@ ptr_t allocPage()
 //recycle a free page
 void freePage(ptr_t baseAddr)
 {
-    *(long *)baseAddr = freePageList;
+    *(long *)(baseAddr-8) = freePageList;
     freePageList = baseAddr;
     //list_add(list_node_t *node, &freePageList)
 }

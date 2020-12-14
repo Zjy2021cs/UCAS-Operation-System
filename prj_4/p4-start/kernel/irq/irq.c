@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <sbi.h>
 #include <screen.h>
+#include <os/mm.h>
 
 handler_t irq_table[IRQC_COUNT];
 handler_t exc_table[EXCC_COUNT];
@@ -30,7 +31,7 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t cause)
     // TODO interrupt handler.
     // call corresponding handler by the value of `cause`
     if(cause < 0x8000000000000000){
-        exc_table[regs->scause](regs,0,cause);
+        exc_table[regs->scause](regs,stval,cause);
     }else{
         irq_table[regs->scause-0x8000000000000000](regs,1,cause);
     }
@@ -57,7 +58,16 @@ void init_exception()
         exc_table[i] = &handle_other;
     }
     exc_table[EXCC_SYSCALL] = &handle_syscall;
+    exc_table[EXCC_STORE_PAGE_FAULT] = &handle_pagefault;
     setup_exception(); //part 1 don't need
+}
+
+void handle_pagefault(regs_context_t *regs, uint64_t stval, uint64_t cause)
+{
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();
+    uintptr_t kva;
+    kva = alloc_page_helper(stval, current_running[cpu_id]->pgdir);
 }
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)

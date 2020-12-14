@@ -1,2 +1,2 @@
 finished s-core
-can run fly.elf
+finished a-core

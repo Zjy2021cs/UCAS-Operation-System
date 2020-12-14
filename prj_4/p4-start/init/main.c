@@ -54,7 +54,7 @@ int process_num = 0;
 mutex_lock_t binsem[NUM_MAX_SEM];
 
 void init_pcb_stack(
-    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, void* arg,
+    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, int argc, void* argv,
     pcb_t *pcb)
 {
     regs_context_t *pt_regs = (regs_context_t *)(kernel_stack - sizeof(regs_context_t));
@@ -68,7 +68,10 @@ void init_pcb_stack(
     pt_regs->regs[2]  = (reg_t)user_stack;                                                   //sp
     pt_regs->regs[3]  = (reg_t)__global_pointer$;                                            //gp
     pt_regs->regs[1]  = (reg_t)entry_point;                                                  //ra
-    pt_regs->regs[10] = (reg_t)arg;                                                          //a0
+    //pt_regs->regs[10] = (reg_t)arg;                                                        //a0
+    /* P4-task3 */
+    pt_regs->regs[10] = (reg_t)argc;                                                         //a0
+    pt_regs->regs[11] = (reg_t)argv;                                                         //a1
     pt_regs->sepc = (reg_t)entry_point;      
     pt_regs->sstatus = SR_SPIE | SR_SUM; //user_process:SPP==0;kernel_process:SPP=1 ??? 
 
@@ -99,7 +102,7 @@ static void init_pcb()
     user_entry_t entry_point = (user_entry_t)load_elf(elf_files[0].file_content, file_len, pcb[0].pgdir, alloc_page_helper);
     pcb[0].kernel_sp =  pcb[0].kernel_stack_base;
     pcb[0].user_sp = pcb[0].user_stack_base;
-    init_pcb_stack(pcb[0].kernel_sp, pcb[0].user_sp, (ptr_t)entry_point, NULL, &pcb[0]); 
+    init_pcb_stack(pcb[0].kernel_sp, pcb[0].user_sp, (ptr_t)entry_point, 0, NULL, &pcb[0]); 
     pcb[0].kernel_sp = pcb[0].kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
     //初始化pid,type,status,cursor
     pcb[0].pid = process_id++;

@@ -82,6 +82,7 @@ void do_scheduler(void)
     }
     
     current_running[cpu_id]->status=TASK_RUNNING;
+    //P4-task2
     set_satp(SATP_MODE_SV39, current_running[cpu_id]->pid, (current_running[cpu_id]->pgdir-0xffffffc000000000)/4096);
     local_flush_tlb_all();
 
@@ -163,7 +164,7 @@ int do_binsem_destroy(int binsem_id)
 //P3-task1--------------------------------------------------------------------------------------------------------------
 /* 回收内存 */
 void recycle(long *stack_base){
-    *stack_base = recycle_queue;
+    *(stack_base-8) = recycle_queue;
     recycle_queue = (ptr_t)stack_base;
 }
 /* reuse the free-stack space */
@@ -173,7 +174,7 @@ ptr_t reuse(){
         return 0;
     }else{
         new_stack_base = (long *)recycle_queue;
-        recycle_queue = *new_stack_base;
+        recycle_queue = *(new_stack_base-8);
     }
     return (ptr_t)new_stack_base;
 }
@@ -198,7 +199,7 @@ pid_t do_spawn(task_info_t *task, void* arg, spawn_mode_t mode){
     }
     new_pcb->kernel_sp =  new_pcb->kernel_stack_base;
     new_pcb->user_sp = new_pcb->user_stack_base;
-    init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, task->entry_point, arg, new_pcb);
+    //init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, task->entry_point, arg, new_pcb); P4 cannot run it
     new_pcb->kernel_sp = new_pcb->kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
     new_pcb->pid = process_id++;
     new_pcb->type = task->type;
@@ -470,7 +471,7 @@ void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode){
     }
     new_pcb->kernel_sp =  new_pcb->kernel_stack_base;
     new_pcb->user_sp = new_pcb->user_stack_base;
-    init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, task->entry_point, NULL, new_pcb);
+    //init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, task->entry_point, NULL, new_pcb); P4 cannot run it
     new_pcb->kernel_sp = new_pcb->kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
     new_pcb->pid = process_id++;
     new_pcb->type = task->type;
@@ -517,7 +518,22 @@ pid_t do_exec(const char* file_name, int argc, char* argv[], spawn_mode_t mode){
     
     new_pcb->kernel_sp =  new_pcb->kernel_stack_base;
     new_pcb->user_sp = new_pcb->user_stack_base;
-    init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, (ptr_t)entry_point, argv, new_pcb);
+    uintptr_t uva_argv = 0xf0000f040;
+    uintptr_t kva_argvi = kva_stack;
+    uintptr_t uva_argvi = 0xf0000f000;
+    kva_stack += 0x40;
+    init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, (ptr_t)entry_point, argc, (void *)uva_argv, new_pcb);
+    for(i=0;i<4;i++){
+        if(argv[i]==0){
+            break;
+        }
+        kmemcpy((uint8_t *)kva_argvi, (uint8_t *)argv[i], kstrlen(argv[i])+1);
+        *(uintptr_t *)kva_stack = uva_argvi;
+        kva_stack+=8;
+        kva_argvi += kstrlen(argv[i])+1;
+        uva_argvi += kstrlen(argv[i])+1;
+    }
+    
     new_pcb->kernel_sp = new_pcb->kernel_sp -sizeof(regs_context_t) - sizeof(switchto_context_t); 
     new_pcb->pid = process_id++;
     new_pcb->type = USER_PROCESS;

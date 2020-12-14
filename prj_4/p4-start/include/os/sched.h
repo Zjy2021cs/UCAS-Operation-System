@@ -128,7 +128,7 @@ extern pcb_t pid0_pcb_s;
 extern const ptr_t pid0_stack_s;
 
 extern void init_pcb_stack(
-    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, void* arg, pcb_t *pcb);
+    ptr_t kernel_stack, ptr_t user_stack, ptr_t entry_point, int argc, void* argv, pcb_t *pcb);
 
 extern void switch_to(pcb_t *prev, pcb_t *next);
 extern void do_scheduler(void);
