@@ -28,8 +28,8 @@ ptr_t allocPage()
 //recycle a free page
 void freePage(ptr_t baseAddr)
 {
-    *(long *)(baseAddr-8) = freePageList;
-    freePageList = baseAddr;
+    /**(long *)(baseAddr-8) = freePageList;
+    freePageList = baseAddr;*/
     //list_add(list_node_t *node, &freePageList)
 }
 

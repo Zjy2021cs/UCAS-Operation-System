@@ -164,8 +164,8 @@ int do_binsem_destroy(int binsem_id)
 //P3-task1--------------------------------------------------------------------------------------------------------------
 /* 回收内存 */
 void recycle(long *stack_base){
-    *(stack_base-8) = recycle_queue;
-    recycle_queue = (ptr_t)stack_base;
+    /**(stack_base-8) = recycle_queue;
+    recycle_queue = (ptr_t)stack_base;*/
 }
 /* reuse the free-stack space */
 ptr_t reuse(){
@@ -523,7 +523,7 @@ pid_t do_exec(const char* file_name, int argc, char* argv[], spawn_mode_t mode){
     uintptr_t uva_argvi = 0xf0000f000;
     kva_stack += 0x40;
     init_pcb_stack(new_pcb->kernel_sp, new_pcb->user_sp, (ptr_t)entry_point, argc, (void *)uva_argv, new_pcb);
-    for(i=0;i<4;i++){
+    for(i=0;i<argc;i++){
         if(argv[i]==0){
             break;
         }
