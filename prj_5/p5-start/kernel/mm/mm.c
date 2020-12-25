@@ -64,7 +64,7 @@ void share_pgtable(uintptr_t dest_pgdir, uintptr_t src_pgdir)
    */
 uintptr_t alloc_page_helper(uintptr_t va, uintptr_t pgdir)
 {
-    uint64_t vpn2 = va >> 30;
+    uint64_t vpn2 = va >> 30; 
     uint64_t vpn1 = (va << 34) >> 55;
     uint64_t vpn0 = (va << 43) >> 55;
     uint64_t offset = (va << 52) >> 52;

@@ -153,3 +153,16 @@ int sys_barrier_wait(mthread_barrier_t *barrier)
 {
     return invoke_syscall(SYSCALL_BARRIER_WAIT, (uintptr_t)barrier, IGNORE, IGNORE, IGNORE);
 }
+
+//P5---------------------------------------------------------
+long sys_net_recv(uintptr_t addr, size_t length, int num_packet, size_t* frLength){
+    return invoke_syscall(SYSCALL_NET_RECV, addr, length, num_packet, (uintptr_t)frLength);
+}
+
+void sys_net_send(uintptr_t addr, size_t length){
+    invoke_syscall(SYSCALL_NET_SEND, addr, length, IGNORE, IGNORE);
+}
+
+void sys_net_irq_mode(int mode){
+    invoke_syscall(SYSCALL_NET_IRQ_MODE, mode, IGNORE, IGNORE, IGNORE);
+}

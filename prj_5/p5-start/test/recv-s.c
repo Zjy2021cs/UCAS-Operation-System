@@ -8,7 +8,7 @@ size_t recv_length[MAX_RECV_CNT];
 int recv_s(int argc, char *argv[])
 {
     int mode = 0;
-    int size = 1;
+    int size = 1; 
 
     do_net_irq_mode(mode);
 

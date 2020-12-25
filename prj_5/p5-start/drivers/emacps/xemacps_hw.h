@@ -602,7 +602,7 @@ typedef enum { MDC_DIV_8 = 0U, MDC_DIV_16, MDC_DIV_32, MDC_DIV_48,
  */
 
 #define XEmacPs_In32  Xil_In32
-#define XEmacPs_Out32 Xil_Out32
+#define XEmacPs_Out32 
 
 
 /****************************************************************************/

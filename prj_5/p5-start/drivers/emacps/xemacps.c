@@ -445,7 +445,7 @@ void XEmacPs_StubHandler(void)
 ******************************************************************************/
 void XEmacPs_SetQueuePtr(XEmacPs *InstancePtr, UINTPTR QPtr, u8 QueueNum,
 			 u16 Direction)
-{
+{ 
 	/* Assert bad arguments and conditions */
 	Xil_AssertVoid(InstancePtr != NULL);
 	Xil_AssertVoid(InstancePtr->IsReady == (u32)XIL_COMPONENT_IS_READY);

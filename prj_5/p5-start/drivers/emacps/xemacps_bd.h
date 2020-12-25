@@ -411,7 +411,7 @@ typedef u32 XEmacPs_Bd[XEMACPS_BD_NUM_WORDS];
  *
  * @note
  * C-style signature:
- *    void XEmacPs_BdSetRxWrap(XEmacPs_Bd* BdPtr)
+ *    void XEmacPs_BdSetRxWrap(XEmacPs_Bd* BdPtr) 
  *
  *****************************************************************************/
 extern void XEmacPs_BdSetRxWrap(UINTPTR BdPtr);

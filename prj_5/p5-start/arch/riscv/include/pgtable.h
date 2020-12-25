@@ -81,11 +81,13 @@ typedef uint64_t PTE;
 static inline uintptr_t kva2pa(uintptr_t kva)
 {
     // TODO:
+    return (kva - 0xffffffc000000000);
 }
 
 static inline uintptr_t pa2kva(uintptr_t pa)
 {
     // TODO:
+    return (pa + 0xffffffc000000000);
 }
 
 static inline uint64_t get_pa(PTE entry)
@@ -104,7 +106,7 @@ static inline uintptr_t get_kva_of(uintptr_t va, uintptr_t pgdir_va)
     second_pgdir = (second_pgdir >> 10) * 4096 + 0xffffffc000000000; //virtual addr
     uint64_t third_pgdir = *(PTE *)(second_pgdir+vpn1*8);
     third_pgdir = (third_pgdir >> 10) * 4096 + 0xffffffc000000000;
-    uint64_t pfa = *(PTE *)(third_pgdir+vpn1*8);
+    uint64_t pfa = *(PTE *)(third_pgdir+vpn0*8);
     pfa = (pfa >> 10) * 4096;
     uintptr_t kva = 0xffffffc000000000 + pfa + offset;
     return kva;

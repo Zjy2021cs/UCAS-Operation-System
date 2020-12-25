@@ -118,7 +118,7 @@
 #include "xemacps_bdring.h"
 #include "xparameters.h"
 #include "xemacps.h"
-#include <net.h>
+#include <net.h> 
 
 #include <os/sched.h>
 
@@ -178,11 +178,10 @@ EthernetFrame RxFrame; /* Receive buffer */
  * affected.
  */
 
-u8 bd_space[0x200000] __attribute__((aligned(0x200000)));
+u64 bd_space[0x40000] __attribute__((aligned(0x200000)));
 
-
-u8 *RxBdSpacePtr;
-u8 *TxBdSpacePtr;
+u64 *RxBdSpacePtr;
+u64 *TxBdSpacePtr;
 
 #define FIRST_FRAGMENT_SIZE 64
 
@@ -266,6 +265,8 @@ LONG EmacPsSetupBD(XEmacPs *EmacPsInstancePtr)
 
     /* Allocate Rx and Tx BD space each */
     // TODO:
+    RxBdSpacePtr = &bd_space[0];
+    TxBdSpacePtr = &bd_space[0x20000];
 
     /*
      * Setup RxBD space.
@@ -279,14 +280,27 @@ LONG EmacPsSetupBD(XEmacPs *EmacPsInstancePtr)
      * be copied to every RxBD. We will not have to explicitly set
      * these again.
      */
-    
     // TODO:
+    XEmacPs_BdClear(&BdTemplate);
 
     /*
      * Create the RxBD ring
      */
-    
     // TODO:
+    Status = XEmacPs_BdRingCreate(
+        &(XEmacPs_GetRxRing(EmacPsInstancePtr)), kva2pa((UINTPTR)RxBdSpacePtr),
+        (UINTPTR)RxBdSpacePtr, XEMACPS_BD_ALIGNMENT, RXBD_CNT, &(XEmacPs_GetTxRing(EmacPsInstancePtr)));
+    if (Status != XST_SUCCESS) {
+        EmacPsUtilErrorTrap("Error setting up RxBD space, BdRingCreate");
+        return XST_FAILURE;
+    }
+
+    Status = XEmacPs_BdRingClone(
+        &(XEmacPs_GetRxRing(EmacPsInstancePtr)), &BdTemplate, XEMACPS_RECV);
+    if (Status != XST_SUCCESS) {
+        EmacPsUtilErrorTrap("Error setting up RxBD space, BdRingClone");
+        return XST_FAILURE;
+    }
 
     /*
      * Setup TxBD space.
@@ -299,14 +313,27 @@ LONG EmacPsSetupBD(XEmacPs *EmacPsInstancePtr)
      * overriding this attribute so it does no good to set it up
      * here.
      */
-    
     // TODO:
+    XEmacPs_BdClear(&BdTemplate);
+    XEmacPs_BdSetStatus(&BdTemplate, XEMACPS_TXBUF_USED_MASK);
 
     /*
      * Create the TxBD ring
      */
-    
     // TODO:
+    Status = XEmacPs_BdRingCreate(
+        &(XEmacPs_GetTxRing(EmacPsInstancePtr)), kva2pa((UINTPTR)TxBdSpacePtr),
+        (UINTPTR)TxBdSpacePtr, XEMACPS_BD_ALIGNMENT, TXBD_CNT, &(XEmacPs_GetRxRing(EmacPsInstancePtr)));
+    if (Status != XST_SUCCESS) {
+        EmacPsUtilErrorTrap("Error setting up TxBD space, BdRingCreate");
+        return XST_FAILURE;
+    }
+    Status = XEmacPs_BdRingClone(
+        &(XEmacPs_GetTxRing(EmacPsInstancePtr)), &BdTemplate, XEMACPS_SEND);
+    if (Status != XST_SUCCESS) {
+        EmacPsUtilErrorTrap("Error setting up TxBD space, BdRingClone");
+        return XST_FAILURE;
+    }
 
     return XST_SUCCESS;
 }
@@ -467,7 +494,8 @@ LONG EmacPsInit(XEmacPs *EmacPsInstancePtr)
 LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t length)
 {
     LONG Status = XST_SUCCESS;
-    XEmacPs_Bd *Bd1Ptr;
+    //XEmacPs_Bd *Bd1Ptr;
+    XEmacPs_Bd BdTemplate;
 
     /*
      * Allocate, setup, and enqueue 1 TxBDs. The first BD will
@@ -477,22 +505,24 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
      * The function below will allocate 1 adjacent BDs with Bd1Ptr
      * being set as the lead BD.
      */
-
     // TODO:
+    //Bd1Ptr = &bd_space[0x20000];
 
     /*
      * Setup first TxBD
      */
-    
     // TODO:
     // set address, length, clear tx used bit
     // set `last` bit if needed
-
+    BdTemplate[0] = (u32)(TxFrame - 0xffffffc000000000);
+    BdTemplate[1] = length | 0x4000;
+    bd_space[0x20000] = BdTemplate[1] << 32 | BdTemplate[0];
 
     // TODO: remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
 
     // TODO: set tx queue base
+    XEmacPs_WriteReg(xemacps_config.BaseAddress,XEMACPS_TXQBASE_OFFSET,&bd_space[0x20000]);
 
     /* Enable transmitter if not already enabled */
 	if ((EmacPsInstancePtr->Options & (u32)XEMACPS_TRANSMITTER_ENABLE_OPTION)!=0x00000000U) {
@@ -514,17 +544,20 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
 LONG EmacPsWaitSend(XEmacPs *EmacPsInstancePtr)
 {
     LONG Status = XST_SUCCESS;
-    XEmacPs_Bd *Bd1Ptr;
+    //XEmacPs_Bd *Bd1Ptr;
 
     /*
      * Wait for transmission to complete
      */
     while (!FramesTx) {
         // TODO:
+        int received = bd_space[0x20000] >> 63;
+        while(!received);
+        FramesRx++;
     }
 
     // maybe you need
-    // --FramesTx;
+    --FramesTx;
 
     // NOTE: remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
@@ -570,9 +603,20 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
      * Setup buffer address to associated BD.
      * Remember to set wrap bit and clear owner bit.
      */
-
     // TODO:
-
+    u64 buffer_pa = RxFrame - 0xffffffc000000000;
+    int i;
+    for(i=0;i<num_packet;i++){
+        if(i==num_packet-1){
+            BdTemplate[0] = (u32)buffer_pa | 0x2; //set wrap
+            BdTemplate[1] = 0;
+        }else{
+            BdTemplate[0] = (u32)buffer_pa;        //&0xfffffffc? align?
+            BdTemplate[1] = 0;
+        }
+        bd_space[i] = BdTemplate[1] << 32 | BdTemplate[0];
+        buffer_pa += XEMACPS_RX_BUF_SIZE;
+    }
 
     // flush again!
     Xil_DCacheFlushRange(0, 64);
@@ -580,7 +624,7 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
      * Set the Queue pointers
      */
     // TODO: set rx queue base
-
+    XEmacPs_WriteReg(xemacps_config.BaseAddress,XEMACPS_RXQBASE_OFFSET,bd_space);
     
 	/* Enable receiver if not already enabled */
 	if ((EmacPsInstancePtr->Options & XEMACPS_RECEIVER_ENABLE_OPTION) != 0x00000000U) {
@@ -607,23 +651,30 @@ LONG EmacPsWaitRecv(XEmacPs *EmacPsInstancePtr, int num_packet, u32* RxFrLen)
      * Wait for Rx indication
      */
     int tmprx = 0;
-    while (!FramesRx) {
+    /*while (!FramesRx) {
         // TODO:
+    }*/
+    while(FramesRx!=num_packet){
+        int received = bd_space[FramesRx]%2;
+        while(!received);
+        FramesRx++;
     }
 
     // remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
 
     // maybe you need
-    // FramesRx = 0;
+    FramesRx = 0;
 
     /*
      * Now that the frame has been received, post process our RxBD.
      * Since we have submitted to hardware.
      */
-    
-    // TODO:
+    // TODO: 
     // NOTE: you can get length from BD
+    for(tmprx=0;tmprx<num_packet;tmprx++){
+        RxFrLen[tmprx] = (bd_space[tmprx] << 19) >> 51;
+    }
     
     return Status;
 }
