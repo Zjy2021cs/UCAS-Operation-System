@@ -2,8 +2,8 @@
 #define PGTABLE_H
 
 #include <type.h>
-#include <io.h>
-
+#include <sbi.h>
+ 
 #define SATP_MODE_SV39 8
 #define SATP_MODE_SV48 9
 
@@ -11,10 +11,10 @@
 #define SATP_MODE_SHIFT 60lu
 
 #define NORMAL_PAGE_SHIFT 12lu
-#define NORMAL_PAGE_SIZE (1lu << NORMAL_PAGE_SHIFT)        //4KB
+#define NORMAL_PAGE_SIZE (1lu << NORMAL_PAGE_SHIFT)         //4KB
 #define LARGE_PAGE_SHIFT 21lu
-#define LARGE_PAGE_SIZE (1lu << NORMAL_PAGE_SHIFT)         //2MB for kernel load
-
+#define LARGE_PAGE_SIZE (1lu << LARGE_PAGE_SHIFT)           //2MB for kernel load
+ 
 /*
  * Flush entire local TLB.  'sfence.vma' implicitly fences with the instruction
  * cache as well, so a 'fence.i' is not necessary.

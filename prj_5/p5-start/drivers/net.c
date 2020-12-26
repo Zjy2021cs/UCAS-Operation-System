@@ -40,7 +40,7 @@ void do_net_send(uintptr_t addr, size_t length)
     // send all packet (every call do_net_send() sends one packet)
     long status;
     status = EmacPsSend(&EmacPsInstance, (EthernetFrame *)tx_buffer, length); //set TX descripter and enable mac
-
+    printk("Set Tx successfully!\n");
     // wait until dma finish sending a packet.
     status = EmacPsWaitSend(&EmacPsInstance);   //task1:polling
     // maybe you need to call drivers' send function multiple times ?

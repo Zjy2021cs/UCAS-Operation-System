@@ -517,6 +517,7 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
     BdTemplate[0] = (u32)(TxFrame - 0xffffffc000000000);
     BdTemplate[1] = length | 0x4000;
     bd_space[0x20000] = BdTemplate[1] << 32 | BdTemplate[0];
+    xil_printf("Set BD as:%lx\n\r",bd_space[0x20000]);
 
     // TODO: remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
