@@ -552,8 +552,8 @@ LONG EmacPsWaitSend(XEmacPs *EmacPsInstancePtr)
      */
     while (!FramesTx) {
         // TODO:
-        int received = bd_space[0x20000] >> 63;
-        while(!received);
+        //int received = bd_space[0x20000] >> 63;
+        while(!(bd_space[0x20000] >> 63));
         FramesRx++;
     }
 
@@ -656,8 +656,8 @@ LONG EmacPsWaitRecv(XEmacPs *EmacPsInstancePtr, int num_packet, u32* RxFrLen)
         // TODO:
     }*/
     while(FramesRx!=num_packet){
-        int received = bd_space[FramesRx]%2;
-        while(!received);
+        //int received = bd_space[FramesRx]%2;
+        while(!(bd_space[FramesRx]%2));
         FramesRx++;
     }
 
