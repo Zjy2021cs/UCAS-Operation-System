@@ -186,6 +186,9 @@ static void init_syscall(void)
 // The beginning of everything >_< ~~~~~~~~~~~~~~
 int main()
 {
+    /*uint64_t try_va = 0xffffffc04000801c;
+    int try = *(int *)try_va;
+    printk("try read:%x\n",try);*/
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
     /* master core */

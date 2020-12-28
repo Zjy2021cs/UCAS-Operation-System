@@ -516,14 +516,17 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
     // set `last` bit if needed
     BdTemplate[0] = (u32)(TxFrame - 0xffffffc000000000);
     BdTemplate[1] = length | 0x4000;
-    bd_space[0x20000] = BdTemplate[1] << 32 | BdTemplate[0];
+    bd_space[0x20000] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
     xil_printf("Set BD as:%lx\n\r",bd_space[0x20000]);
 
     // TODO: remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
 
     // TODO: set tx queue base
-    XEmacPs_WriteReg(xemacps_config.BaseAddress,XEMACPS_TXQBASE_OFFSET,&bd_space[0x20000]);
+    u32 bd_addr = (u32)(&bd_space[0x20000] - 0xffffffc000000000);
+    XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXQBASE_OFFSET,bd_addr);
+    u32 base_addr = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXQBASE_OFFSET);
+    xil_printf("Set TXQBASE_OFFSET as:%x\n\r",base_addr);
 
     /* Enable transmitter if not already enabled */
 	if ((EmacPsInstancePtr->Options & (u32)XEMACPS_TRANSMITTER_ENABLE_OPTION)!=0x00000000U) {
@@ -615,7 +618,7 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
             BdTemplate[0] = (u32)buffer_pa;        //&0xfffffffc? align?
             BdTemplate[1] = 0;
         }
-        bd_space[i] = BdTemplate[1] << 32 | BdTemplate[0];
+        bd_space[i] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
         buffer_pa += XEMACPS_RX_BUF_SIZE;
     }
 
@@ -625,7 +628,8 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
      * Set the Queue pointers
      */
     // TODO: set rx queue base
-    XEmacPs_WriteReg(xemacps_config.BaseAddress,XEMACPS_RXQBASE_OFFSET,bd_space);
+    u32 bd_addr = (u32)(bd_space - 0xffffffc000000000);
+    XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_RXQBASE_OFFSET,bd_addr);
     
 	/* Enable receiver if not already enabled */
 	if ((EmacPsInstancePtr->Options & XEMACPS_RECEIVER_ENABLE_OPTION) != 0x00000000U) {
