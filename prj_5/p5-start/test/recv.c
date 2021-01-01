@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
     printf("[RECV TASK] start recv(%d):                    ", size);
 
     int ret = sys_net_recv(recv_buffer, size * sizeof(EthernetFrame), size, recv_length);
-    printf("%d\n", ret);
+    printf("return_status:%d\n", ret);
     char *curr = recv_buffer;
     for (int i = 0; i < size; ++i) {
         printf("packet %d:\n", i);

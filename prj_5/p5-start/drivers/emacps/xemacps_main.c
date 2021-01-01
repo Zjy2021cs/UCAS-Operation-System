@@ -463,6 +463,7 @@ LONG EmacPsInit(XEmacPs *EmacPsInstancePtr)
     /*
      * Set emacps to phy loopback or init phy for link
      */
+    xil_printf("GemVersion:%d\n\r",GemVersion); 
     if (GemVersion == 2) {
         XEmacPs_SetMdioDivisor(EmacPsInstancePtr, MDC_DIV_224);
         EmacpsDelay(1);
@@ -514,10 +515,9 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
     // TODO:
     // set address, length, clear tx used bit
     // set `last` bit if needed
-    BdTemplate[0] = (u32)(TxFrame - 0xffffffc000000000);
-    BdTemplate[1] = length | 0x4000;
+    BdTemplate[0] = (u32)((ptr_t)TxFrame - 0xffffffc000000000);
+    BdTemplate[1] = length | XEMACPS_TXBUF_LAST_MASK;
     bd_space[0x20000] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
-    xil_printf("Set BD as:%lx\n\r",bd_space[0x20000]);
 
     // TODO: remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
@@ -525,8 +525,6 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
     // TODO: set tx queue base
     u32 bd_addr = (u32)(&bd_space[0x20000] - 0xffffffc000000000);
     XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXQBASE_OFFSET,bd_addr);
-    u32 base_addr = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXQBASE_OFFSET);
-    xil_printf("Set TXQBASE_OFFSET as:%x\n\r",base_addr);
 
     /* Enable transmitter if not already enabled */
 	if ((EmacPsInstancePtr->Options & (u32)XEMACPS_TRANSMITTER_ENABLE_OPTION)!=0x00000000U) {
@@ -541,7 +539,6 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
 
 	// start transmit
     XEmacPs_Transmit(EmacPsInstancePtr);
-
     return Status;
 }
 
@@ -549,15 +546,20 @@ LONG EmacPsWaitSend(XEmacPs *EmacPsInstancePtr)
 {
     LONG Status = XST_SUCCESS;
     //XEmacPs_Bd *Bd1Ptr;
-
     /*
      * Wait for transmission to complete
      */
     while (!FramesTx) {
         // TODO:
-        //int received = bd_space[0x20000] >> 63;
-        while(!(bd_space[0x20000] >> 63));
-        FramesRx++;
+        u32 TXSR_reg = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXSR_OFFSET);
+        while((!(TXSR_reg & XEMACPS_TXSR_TXCOMPL_MASK))==TRUE){
+            TXSR_reg = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXSR_OFFSET);
+        }
+        FramesTx++;
+        int received = bd_space[0x20000] >> 63;
+        if(received){
+            xil_printf("Packet gone!\n\r");
+        }
     }
 
     // maybe you need
@@ -608,18 +610,18 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
      * Remember to set wrap bit and clear owner bit.
      */
     // TODO:
-    u64 buffer_pa = RxFrame - 0xffffffc000000000;
+    u64 buffer_pa = (ptr_t)RxFrame - 0xffffffc000000000;
     int i;
     for(i=0;i<num_packet;i++){
         if(i==num_packet-1){
-            BdTemplate[0] = (u32)buffer_pa | 0x2; //set wrap
+            BdTemplate[0] = (u32)buffer_pa | XEMACPS_RXBUF_WRAP_MASK; //set wrap
             BdTemplate[1] = 0;
         }else{
-            BdTemplate[0] = (u32)buffer_pa;        //&0xfffffffc? align?
+            BdTemplate[0] = (u32)buffer_pa;        
             BdTemplate[1] = 0;
         }
         bd_space[i] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
-        buffer_pa += XEMACPS_RX_BUF_SIZE;
+        buffer_pa += sizeof(EthernetFrame);      //XEMACPS_RX_BUF_SIZE;
     }
 
     // flush again!
@@ -628,7 +630,7 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
      * Set the Queue pointers
      */
     // TODO: set rx queue base
-    u32 bd_addr = (u32)(bd_space - 0xffffffc000000000);
+    u32 bd_addr = (u32)((ptr_t)bd_space - 0xffffffc000000000);
     XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_RXQBASE_OFFSET,bd_addr);
     
 	/* Enable receiver if not already enabled */
@@ -656,12 +658,13 @@ LONG EmacPsWaitRecv(XEmacPs *EmacPsInstancePtr, int num_packet, u32* RxFrLen)
      * Wait for Rx indication
      */
     int tmprx = 0;
-    /*while (!FramesRx) {
-        // TODO:
-    }*/
+    //can not check RXSR! receive 1 -> RXSR=1
     while(FramesRx!=num_packet){
-        //int received = bd_space[FramesRx]%2;
-        while(!(bd_space[FramesRx]%2));
+        int received = bd_space[FramesRx]%2;
+        while(!received){
+            received = bd_space[FramesRx]%2;
+        }
+        xil_printf("Packet come!\n\r");
         FramesRx++;
     }
 
@@ -678,7 +681,7 @@ LONG EmacPsWaitRecv(XEmacPs *EmacPsInstancePtr, int num_packet, u32* RxFrLen)
     // TODO: 
     // NOTE: you can get length from BD
     for(tmprx=0;tmprx<num_packet;tmprx++){
-        RxFrLen[tmprx] = (bd_space[tmprx] << 19) >> 51;
+        RxFrLen[tmprx] = (u32)((bd_space[tmprx] << 19) >> 51);
     }
     
     return Status;

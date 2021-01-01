@@ -9,7 +9,7 @@ static uintptr_t io_base = IO_ADDR_START;
 void *ioremap(unsigned long phys_addr, unsigned long size)
 {
     // map phys_addr to a virtual address
-    uintptr_t va_begin = io_base;
+    /*uintptr_t va_begin = io_base;
     io_base += size;
     //fill the PTE
     uintptr_t va = va_begin;
@@ -42,9 +42,10 @@ void *ioremap(unsigned long phys_addr, unsigned long size)
         pa += 0x1000;
     }
 
-    local_flush_tlb_all();
+    local_flush_tlb_all();*/
+    uint64_t va = phys_addr + 0xffffffc000000000;
     // then return the virtual address
-    return (void *)va_begin;
+    return (void *)va;
 } 
 
 void iounmap(void *io_addr)
