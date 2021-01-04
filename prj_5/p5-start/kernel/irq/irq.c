@@ -89,7 +89,6 @@ void handle_irq(regs_context_t *regs, uint64_t irq)
             recieved_num++;
         }
         if((bd_space[recieved_num-1]%4)==3){   //reieve enough packet
-            printk("reieve enough packet!\n");
             if (!list_empty(&recv_queue)) {
                 do_unblock(recv_queue.prev);
             }

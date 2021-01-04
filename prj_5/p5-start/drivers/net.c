@@ -29,13 +29,11 @@ long do_net_recv(uintptr_t addr, size_t length, int num_packet, size_t* frLength
     while(now_packet<num_packet){
         if((num_packet-now_packet)<=TURN_NUM){
             status = EmacPsRecv(&EmacPsInstance, (EthernetFrame *)rx_buffers, (num_packet-now_packet));  
-            printk("recv num:%d\n",(num_packet-now_packet));
             if(net_poll_mode==1){                //task3:interrupt
                 uint64_t cpu_id;
                 cpu_id = get_current_cpu_id();
                 do_block(&current_running[cpu_id]->list, &recv_queue);
             }
-            printk("come!\n");
             status = EmacPsWaitRecv(&EmacPsInstance, (num_packet-now_packet), rx_len); 
             for(int i=0; i < (num_packet-now_packet); i++){
                 kmemcpy((uint8_t *)user_addr, (uint8_t *)&rx_buffers[i], rx_len[i]);
@@ -59,7 +57,6 @@ long do_net_recv(uintptr_t addr, size_t length, int num_packet, size_t* frLength
                 user_addr += rx_len[i];
                 frLength[i+now_packet] = rx_len[i];
             }
-            printk("user_addr:%lx\n",user_addr);
         }
         now_packet += TURN_NUM;
     }
