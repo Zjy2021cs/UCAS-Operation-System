@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     int ret = sys_net_recv(recv_buffer, size * sizeof(EthernetFrame), size, recv_length);
     printf("%d\n", ret);
     char *curr = recv_buffer;
-    for (int i = 0; i < size; ++i) {
+    for (int i = 30; i < size; ++i) {
         printf("packet %d:\n", i);
         for (int j = 0; j < (recv_length[i] + 15) / 16; ++j) {
             for (int k = 0; k < 16 && (j * 16 + k < recv_length[i]); ++k) {

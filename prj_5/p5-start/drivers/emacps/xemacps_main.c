@@ -613,6 +613,7 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
     u64 buffer_pa = RxFrame - 0xffffffc000000000;
     int i;
     for(i=0;i<num_packet;i++){
+        BdTemplate[0] = 0;
         if(i==num_packet-1){
             BdTemplate[0] = (u32)buffer_pa | XEMACPS_RXBUF_WRAP_MASK; //set wrap
             BdTemplate[1] = 0;
@@ -622,6 +623,9 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
         }
         bd_space[i] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
         buffer_pa += XEMACPS_RX_BUF_SIZE;
+    }
+    for(;i<0x40;i++){
+        bd_space[i] = XEMACPS_RXBUF_WRAP_MASK;
     }
 
     // flush again!
