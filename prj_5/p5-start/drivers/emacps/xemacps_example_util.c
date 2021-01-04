@@ -835,6 +835,7 @@ LONG EmacPsUtilRtlPhyInit(XEmacPs * EmacPsInstancePtr,
 	u16 PhyReg0  = 0;
 
 	Status = XEmacPs_PhyWrite(EmacPsInstancePtr, PhyAddr, 0x4, 0x0141);
+
 	/*
 	 * Issue a reset to phy
 	 */
@@ -895,6 +896,7 @@ LONG EmacPsUtilRtlPhyInit(XEmacPs * EmacPsInstancePtr,
     } while ((bmsr & RTL8211E_AUTO_NEGOTIATION_COMPLETE) !=
              RTL8211E_AUTO_NEGOTIATION_COMPLETE);
     xil_printf(" [Done]\n\r");
+
 
 	Status = XEmacPs_PhyRead(EmacPsInstancePtr, PhyAddr, 0x11, &physr);
 	u32 _speed = physr & RTL8211E_PHYSR_SPEED_MASK;

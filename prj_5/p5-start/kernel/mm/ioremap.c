@@ -8,8 +8,8 @@ static uintptr_t io_base = IO_ADDR_START;
 
 void *ioremap(unsigned long phys_addr, unsigned long size)
 {
-    // map phys_addr to a virtual address
-    /*uintptr_t va_begin = io_base;
+    /* map phys_addr to a virtual address
+    uintptr_t va_begin = io_base;
     io_base += size;
     //fill the PTE
     uintptr_t va = va_begin;

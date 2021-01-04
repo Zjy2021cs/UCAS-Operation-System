@@ -23,7 +23,7 @@ void wakeup_other_hart()
 
 void lock_kernel()
 {
-    while(atomic_cmpxchg(UNLOCKED, LOCKED, (ptr_t)&kernel_lock.status));
+    //while(atomic_cmpxchg(UNLOCKED, LOCKED, (ptr_t)&kernel_lock.status));
 }
 
 void unlock_kernel()

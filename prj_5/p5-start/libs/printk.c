@@ -252,6 +252,7 @@ static void port_write_wrapper(char* str)
     uint64_t mhartid = get_current_cpu_id();
     for (char* p = str; *p != '\0'; ++p) {
         if (*p == '\n') {
+            current_running[mhartid]->cursor_x = 1;
             current_running[mhartid]->cursor_y++;
         } else if (*p == '\r') {
             current_running[mhartid]->cursor_x = 1;

@@ -89,8 +89,6 @@ void do_scheduler(void)
     // restore the current_runnint's cursor_x and cursor_y
     vt100_move_cursor(current_running[cpu_id]->cursor_x,
                       current_running[cpu_id]->cursor_y);
-    //screen_cursor_x = current_running[cpu_id]->cursor_x;
-    //screen_cursor_y = current_running[cpu_id]->cursor_y;
     // TODO: switch_to current_running
     switch_to(prev_running, current_running[cpu_id]);
 }
@@ -435,7 +433,7 @@ void do_mbox_recv(int mailbox_id, void *msg, int msg_length){
         do_scheduler();
     }
     //get msg from mailbox
-    int i;
+    int i; 
     for(i=msg_length-1;i>=0;i--){
         ((char*)msg)[i] = mailbox_k[mailbox_id].msg[--mailbox_k[mailbox_id].index];
     }

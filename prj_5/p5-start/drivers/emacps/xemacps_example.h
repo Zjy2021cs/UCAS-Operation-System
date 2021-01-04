@@ -129,5 +129,5 @@ extern char DestMAC[];
 extern u32 Platform;
 extern uintptr_t XPS_SYS_CTRL_BASEADDR;
 extern XEmacPs_Config xemacps_config;
-
+extern u64 bd_space[0x80];
 #endif /* XEMACPS_EXAMPLE_H */

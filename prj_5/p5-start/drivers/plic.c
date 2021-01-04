@@ -101,7 +101,7 @@ void plic_irq_eoi(int hwirq)
 	__asm__ __volatile__ ("csrs " __ASM_STR(csr) ", %0"	\
 			      : : "rK" (__v)			\
 			      : "memory");			\
-})
+}) 
 
 #define csr_clear(csr, val)					\
 ({								\

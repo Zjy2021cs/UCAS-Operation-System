@@ -36,22 +36,13 @@ void interrupt_helper(regs_context_t *regs, uint64_t stval, uint64_t cause)
     if(cause < 0x8000000000000000){
         exc_table[regs->scause](regs,stval,cause);
     }else{
-        irq_table[regs->scause-0x8000000000000000](regs,1,cause);
+        irq_table[regs->scause-0x8000000000000000](regs,stval,cause);
     }
 }
 
 void handle_int(regs_context_t *regs, uint64_t interrupt, uint64_t cause)
 {
     reset_irq_timer();
-}
-
-//prj_5 !!! NEW: handle_irq
-extern uint64_t read_sip();
-void handle_irq(regs_context_t *regs, int irq)
-{
-    // TODO: 
-    // handle external irq from network device
-    // let PLIC know that handle_irq has been finished
 }
 
 //P2: task 4
@@ -65,21 +56,69 @@ void init_exception()
         irq_table[i] = &handle_other;
     }
     irq_table[IRQC_S_TIMER] = &handle_int;
+    irq_table[IRQC_S_EXT] = &plic_handle_irq;
     for ( i = 0; i < EXCC_COUNT; i++)
     {
         exc_table[i] = &handle_other;
     }
     exc_table[EXCC_SYSCALL] = &handle_syscall;
-    exc_table[EXCC_STORE_PAGE_FAULT] = &handle_pagefault;
+    //exc_table[EXCC_STORE_PAGE_FAULT] = &handle_pagefault;
     setup_exception(); //part 1 don't need
 }
 
+//P4
 void handle_pagefault(regs_context_t *regs, uint64_t stval, uint64_t cause)
 {
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
     uintptr_t kva;
     kva = alloc_page_helper(stval, current_running[cpu_id]->pgdir);
+}
+
+//P5 
+extern uint64_t read_sip();
+void handle_irq(regs_context_t *regs, uint64_t irq)
+{
+    // TODO: 
+    // handle external irq from network device
+    uint32_t ISR_reg;
+    ISR_reg = XEmacPs_ReadReg(EmacPsInstance.Config.BaseAddress, XEMACPS_ISR_OFFSET);
+    if(ISR_reg & XEMACPS_IXR_FRAMERX_MASK){      //complete getting a packet
+        int recieved_num=0;
+        while(bd_space[recieved_num]%2){
+            recieved_num++;
+        }
+        if((bd_space[recieved_num-1]%4)==3){   //reieve enough packet
+            printk("reieve enough packet!\n");
+            if (!list_empty(&recv_queue)) {
+                do_unblock(recv_queue.prev);
+            }
+        }
+        //set XEMACPS_ISR_OFFSET for complete recieve
+        XEmacPs_WriteReg(EmacPsInstance.Config.BaseAddress, XEMACPS_ISR_OFFSET,ISR_reg); 
+        //set RXSR for complete recieve
+        XEmacPs_WriteReg(EmacPsInstance.Config.BaseAddress, XEMACPS_RXSR_OFFSET,XEMACPS_RXSR_FRAMERX_MASK);
+        // NOTE: remember to flush dcache
+        Xil_DCacheFlushRange(0, 64);
+        // let PLIC know that handle_irq has been finished
+        plic_irq_eoi(irq);
+    }
+    if(ISR_reg & XEMACPS_IXR_TXCOMPL_MASK){      //complete sending a packet
+        if (!list_empty(&send_queue)) {
+            do_unblock(send_queue.prev);
+        }
+        //set XEMACPS_ISR_OFFSET for complete recieve/send
+        XEmacPs_WriteReg(EmacPsInstance.Config.BaseAddress, XEMACPS_ISR_OFFSET,ISR_reg);  
+        //set TXSR for complete recieve
+        uint32_t TXSR_reg;
+        TXSR_reg = XEmacPs_ReadReg(EmacPsInstance.Config.BaseAddress, XEMACPS_TXSR_OFFSET);
+        XEmacPs_WriteReg(EmacPsInstance.Config.BaseAddress, XEMACPS_TXSR_OFFSET,TXSR_reg|XEMACPS_TXSR_TXCOMPL_MASK);  
+        // NOTE: remember to flush dcache
+        Xil_DCacheFlushRange(0, 64);
+        // let PLIC know that handle_irq has been finished
+        plic_irq_eoi(irq);
+    }
+    
 }
 
 void handle_other(regs_context_t *regs, uint64_t stval, uint64_t cause)

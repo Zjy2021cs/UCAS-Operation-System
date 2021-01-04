@@ -178,7 +178,7 @@ EthernetFrame RxFrame; /* Receive buffer */
  * affected.
  */
 
-u64 bd_space[0x40000] __attribute__((aligned(0x200000)));
+u64 bd_space[0x80] __attribute__((aligned(0x80)));
 
 u64 *RxBdSpacePtr;
 u64 *TxBdSpacePtr;
@@ -266,7 +266,7 @@ LONG EmacPsSetupBD(XEmacPs *EmacPsInstancePtr)
     /* Allocate Rx and Tx BD space each */
     // TODO:
     RxBdSpacePtr = &bd_space[0];
-    TxBdSpacePtr = &bd_space[0x20000];
+    TxBdSpacePtr = &bd_space[0x40];
 
     /*
      * Setup RxBD space.
@@ -463,7 +463,6 @@ LONG EmacPsInit(XEmacPs *EmacPsInstancePtr)
     /*
      * Set emacps to phy loopback or init phy for link
      */
-    xil_printf("GemVersion:%d\n\r",GemVersion); 
     if (GemVersion == 2) {
         XEmacPs_SetMdioDivisor(EmacPsInstancePtr, MDC_DIV_224);
         EmacpsDelay(1);
@@ -480,8 +479,12 @@ LONG EmacPsInit(XEmacPs *EmacPsInstancePtr)
     /* clear any existed int status */
 	XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress, XEMACPS_ISR_OFFSET,
 			   XEMACPS_IXR_ALL_MASK);
-
+ 
     /* Enable TX and RX interrupts */
+    XEmacPs_IntEnable(
+        EmacPsInstancePtr,
+        (XEMACPS_IXR_TX_ERR_MASK | XEMACPS_IXR_RX_ERR_MASK |
+        (u32)XEMACPS_IXR_FRAMERX_MASK | (u32)XEMACPS_IXR_TXCOMPL_MASK));
     /* TODO: 
      * NOTE: you can use XEmacPs_IntEnable and XEmacPs_IntDisable
      *       enable these bits: 
@@ -495,9 +498,8 @@ LONG EmacPsInit(XEmacPs *EmacPsInstancePtr)
 LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t length)
 {
     LONG Status = XST_SUCCESS;
-    //XEmacPs_Bd *Bd1Ptr;
     XEmacPs_Bd BdTemplate;
-
+    
     /*
      * Allocate, setup, and enqueue 1 TxBDs. The first BD will
      * describe the first 32 bytes of TxFrame and the rest of BDs
@@ -506,24 +508,18 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
      * The function below will allocate 1 adjacent BDs with Bd1Ptr
      * being set as the lead BD.
      */
-    // TODO:
-    //Bd1Ptr = &bd_space[0x20000];
+    // TODO: Setup first TxBD
 
-    /*
-     * Setup first TxBD
-     */
-    // TODO:
-    // set address, length, clear tx used bit
-    // set `last` bit if needed
+    // set address, length, clear tx used bit. set `last` bit if needed
     BdTemplate[0] = (u32)((ptr_t)TxFrame - 0xffffffc000000000);
     BdTemplate[1] = length | XEMACPS_TXBUF_LAST_MASK;
-    bd_space[0x20000] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
+    bd_space[0x40] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
 
     // TODO: remember to flush dcache
     Xil_DCacheFlushRange(0, 64);
 
     // TODO: set tx queue base
-    u32 bd_addr = (u32)(&bd_space[0x20000] - 0xffffffc000000000);
+    u32 bd_addr = (u32)(&bd_space[0x40] - 0xffffffc000000000);
     XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXQBASE_OFFSET,bd_addr);
 
     /* Enable transmitter if not already enabled */
@@ -539,29 +535,34 @@ LONG EmacPsSend(XEmacPs *EmacPsInstancePtr, EthernetFrame *TxFrame, size_t lengt
 
 	// start transmit
     XEmacPs_Transmit(EmacPsInstancePtr);
+
     return Status;
 }
 
 LONG EmacPsWaitSend(XEmacPs *EmacPsInstancePtr)
 {
     LONG Status = XST_SUCCESS;
-    //XEmacPs_Bd *Bd1Ptr;
+
     /*
      * Wait for transmission to complete
      */
-    while (!FramesTx) {
-        // TODO:
-        u32 TXSR_reg = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXSR_OFFSET);
-        while((!(TXSR_reg & XEMACPS_TXSR_TXCOMPL_MASK))==TRUE){
-            TXSR_reg = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXSR_OFFSET);
+    if (!net_poll_mode){
+        while (!FramesTx) {
+            // TODO:
+            u32 TXSR_reg = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXSR_OFFSET);
+            while((!(TXSR_reg & XEMACPS_TXSR_TXCOMPL_MASK))==TRUE){
+                TXSR_reg = XEmacPs_ReadReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_TXSR_OFFSET);
+            }
+            int received = bd_space[0x40] >> 63;
+            if(received){
+                xil_printf("Packet gone!\n\r");
+            }
+            FramesTx++;
         }
+    }else{
         FramesTx++;
-        int received = bd_space[0x20000] >> 63;
-        if(received){
-            xil_printf("Packet gone!\n\r");
-        }
     }
-
+    
     // maybe you need
     --FramesTx;
 
@@ -605,12 +606,11 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
 		}
 	}
 
-    /*
+    /* TODO:
      * Setup buffer address to associated BD.
      * Remember to set wrap bit and clear owner bit.
-     */
-    // TODO:
-    u64 buffer_pa = (ptr_t)RxFrame - 0xffffffc000000000;
+     */ 
+    u64 buffer_pa = RxFrame - 0xffffffc000000000;
     int i;
     for(i=0;i<num_packet;i++){
         if(i==num_packet-1){
@@ -621,7 +621,7 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
             BdTemplate[1] = 0;
         }
         bd_space[i] = ((u64)BdTemplate[1] << 32) | (u64)BdTemplate[0];
-        buffer_pa += sizeof(EthernetFrame);      //XEMACPS_RX_BUF_SIZE;
+        buffer_pa += XEMACPS_RX_BUF_SIZE;
     }
 
     // flush again!
@@ -630,7 +630,7 @@ LONG EmacPsRecv(XEmacPs *EmacPsInstancePtr, EthernetFrame *RxFrame, int num_pack
      * Set the Queue pointers
      */
     // TODO: set rx queue base
-    u32 bd_addr = (u32)((ptr_t)bd_space - 0xffffffc000000000);
+    u32 bd_addr = (u32)(bd_space - 0xffffffc000000000);
     XEmacPs_WriteReg(EmacPsInstancePtr->Config.BaseAddress,XEMACPS_RXQBASE_OFFSET,bd_addr);
     
 	/* Enable receiver if not already enabled */
@@ -658,13 +658,11 @@ LONG EmacPsWaitRecv(XEmacPs *EmacPsInstancePtr, int num_packet, u32* RxFrLen)
      * Wait for Rx indication
      */
     int tmprx = 0;
-    //can not check RXSR! receive 1 -> RXSR=1
     while(FramesRx!=num_packet){
         int received = bd_space[FramesRx]%2;
         while(!received){
             received = bd_space[FramesRx]%2;
         }
-        xil_printf("Packet come!\n\r");
         FramesRx++;
     }
 

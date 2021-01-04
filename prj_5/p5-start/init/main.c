@@ -186,9 +186,6 @@ static void init_syscall(void)
 // The beginning of everything >_< ~~~~~~~~~~~~~~
 int main()
 {
-    /*uint64_t try_va = 0xffffffc04000801c;
-    int try = *(int *)try_va;
-    printk("try read:%x\n",try);*/
     uint64_t cpu_id;
     cpu_id = get_current_cpu_id();
     /* master core */
@@ -221,8 +218,6 @@ int main()
             (uintptr_t)ioremap((uint64_t)slcr_bade_addr, NORMAL_PAGE_SIZE);
         xemacps_config.BaseAddress =
             (uintptr_t)ioremap((uint64_t)ethernet_addr, NORMAL_PAGE_SIZE);
-            //real:(uintptr_t)ioremap((uint64_t)ethernet_addr, NORMAL_PAGE_SIZE);
-        //xemacps_config.BaseAddress += 0x8000;     for qemu
         uintptr_t _plic_addr =
             (uintptr_t)ioremap((uint64_t)plic_addr, 0x4000*NORMAL_PAGE_SIZE);
         // XPS_SYS_CTRL_BASEADDR = slcr_bade_addr;
@@ -255,7 +250,7 @@ int main()
         // init system call table (0_0)
         init_syscall();
         printk("> [INIT] System call initialized successfully.\n\r");
-        
+
         // init screen (QAQ)
         init_screen();
         printk("> [INIT] SCREEN initialization succeeded.\n\r");

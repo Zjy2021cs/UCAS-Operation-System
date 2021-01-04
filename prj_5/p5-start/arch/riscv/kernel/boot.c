@@ -88,8 +88,6 @@ kernel_entry_t start_kernel = NULL;
 int boot_kernel(unsigned long mhartid)
 {
     if (mhartid == 0) {
-        /*uint64_t pa = 0x4000801c;  
-        *(int *)pa = 1;*/
         setup_vm();
         // load kernel
         start_kernel = 

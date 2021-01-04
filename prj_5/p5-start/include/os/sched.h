@@ -173,4 +173,9 @@ extern void do_taskset_exec(int mask, task_info_t *task, spawn_mode_t mode);
 typedef void (*user_entry_t)(unsigned long,unsigned long,unsigned long);
 extern pid_t do_exec(const char* file_name, int argc, char* argv[], spawn_mode_t mode);
 extern void do_show_exec();
+//P5
+/* recv_queue to wait for revieved packet*/
+extern list_head recv_queue;
+/* send_queue to wait for sent packet*/
+extern list_head send_queue;
 #endif
