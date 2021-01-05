@@ -56,7 +56,7 @@ int is_first(echo_shm_vars_t *vars)
 }
 
 int main(int argc, char *argv[])
-{
+{ 
     int mode = 0;
     int size = 1;
     if(argc > 1) {

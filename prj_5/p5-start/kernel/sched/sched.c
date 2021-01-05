@@ -44,7 +44,7 @@ void do_scheduler(void)
     cpu_id = get_current_cpu_id();
     // Modify the current_running pointer.
     pcb_t *prev_running;
-    prev_running = current_running[cpu_id];
+    prev_running = current_running[cpu_id]; 
 
     if(current_running[cpu_id]->status!=TASK_BLOCKED && current_running[cpu_id]->status!=TASK_EXITED){
         current_running[cpu_id]->status=TASK_READY;

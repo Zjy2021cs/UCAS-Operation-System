@@ -40,14 +40,85 @@ void *kmalloc(size_t size)
     return (void*)ret;
 }
 
+void shm_alloc_page(uintptr_t va, uintptr_t kpva, uintptr_t pgdir)
+{
+    uint64_t vpn2 = (va << 25) >> 55;
+    uint64_t vpn1 = (va << 34) >> 55;
+    uint64_t vpn0 = (va << 43) >> 55;
+    uint64_t offset = (va << 52) >> 52;
+    uint64_t second_pgdir;
+    uint64_t third_pgdir;
+    uint64_t pgdir_entry = *(PTE *)(pgdir+vpn2*8);
+
+    if((pgdir_entry%2)==0){          //invalid
+        second_pgdir = allocPage();  //virtual addr
+        uint64_t pgdir_ppn = ((second_pgdir-0xffffffc000000000)/4096) << 10;  //physical addr
+        *(PTE *)(pgdir+vpn2*8) = pgdir_ppn | _PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY;
+    }else{
+        second_pgdir = (pgdir_entry >> 10) * 4096 + 0xffffffc000000000; //virtual addr
+    }
+
+    uint64_t pgdir2_entry = *(PTE *)(second_pgdir+vpn1*8);
+    if((pgdir2_entry%2)==0){         //invalid
+        third_pgdir = allocPage();
+        uint64_t second_ppn = ((third_pgdir-0xffffffc000000000)/4096) << 10;
+        *(PTE *)(second_pgdir+vpn1*8) = second_ppn | _PAGE_PRESENT | _PAGE_USER | _PAGE_ACCESSED | _PAGE_DIRTY;
+    }else{
+        third_pgdir = (pgdir2_entry >> 10) * 4096 + 0xffffffc000000000;
+    }
+      
+    uint64_t third_ppn = ((kpva-0xffffffc000000000)/4096) << 10;
+    *(PTE *)(third_pgdir+vpn0*8) = third_ppn | _PAGE_PRESENT | _PAGE_USER | _PAGE_READ | _PAGE_WRITE | _PAGE_EXEC | _PAGE_ACCESSED | _PAGE_DIRTY;    
+}
+
+#define SHM_VA 0xf000f0000
+typedef struct shm_info
+{
+    int used_count;
+    uintptr_t kpva; 
+} shm_info_t;
+shm_info_t shm[64];
+
 uintptr_t shm_page_get(int key)
 {
-    // TODO(c-core):
+    // TODO(c-core): 
+    int index = key % 64;
+    uintptr_t shm_va = SHM_VA;    
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();  
+    if(shm[index].used_count){
+        shm_alloc_page(shm_va, shm[index].kpva, current_running[cpu_id]->pgdir);
+        shm_alloc_page(shm_va+0x1000, shm[index].kpva+0x1000, current_running[cpu_id]->pgdir);
+        shm_alloc_page(shm_va+0x2000, shm[index].kpva+0x2000, current_running[cpu_id]->pgdir);
+        shm_alloc_page(shm_va+0x3000, shm[index].kpva+0x3000, current_running[cpu_id]->pgdir);
+        shm_alloc_page(shm_va+0x4000, shm[index].kpva+0x4000, current_running[cpu_id]->pgdir);
+        local_flush_tlb_all();
+        shm[index].used_count += 1;
+    }else{      
+        shm[index].kpva = alloc_page_helper(shm_va, current_running[cpu_id]->pgdir);
+        alloc_page_helper(shm_va+0x1000, current_running[cpu_id]->pgdir);
+        alloc_page_helper(shm_va+0x2000, current_running[cpu_id]->pgdir);
+        alloc_page_helper(shm_va+0x3000, current_running[cpu_id]->pgdir);
+        alloc_page_helper(shm_va+0x4000, current_running[cpu_id]->pgdir);
+        local_flush_tlb_all();
+        shm[index].used_count = 1;
+    }
+    return shm_va;
 }
 
 void shm_page_dt(uintptr_t addr) 
 {
     // TODO(c-core):
+    uint64_t cpu_id;
+    cpu_id = get_current_cpu_id();  
+    uint64_t vpn2 = (addr << 25) >> 55;
+    uint64_t vpn1 = (addr << 34) >> 55;
+    uint64_t vpn0 = (addr << 43) >> 55;
+    uint64_t offset = (addr << 52) >> 52;
+    uint64_t pgdir_entry = *(PTE *)(current_running[cpu_id]->pgdir+vpn2*8);
+
+    uint64_t second_pgdir = (pgdir_entry >> 10) * 4096 + 0xffffffc000000000;
+    freePage(second_pgdir);
 }
 
 /* this is used for mapping kernel virtual address into user page table */

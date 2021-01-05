@@ -149,6 +149,8 @@ static void init_syscall(void)
     
     syscall[SYSCALL_FUTEX_WAIT]     = (long int (*)())&futex_wait;
     syscall[SYSCALL_FUTEX_WAKEUP]   = (long int (*)())&futex_wakeup;
+    syscall[SYSCALL_SHMPGET]        = (long int (*)())&shm_page_get;
+    syscall[SYSCALL_SHMPDT]         = (long int (*)())&shm_page_dt;
     syscall[SYSCALL_TASKSET_P]      = (long int (*)())&do_taskset_p;
     syscall[SYSCALL_TASKSET_EXEC]   = (long int (*)())&do_taskset_exec;
 
@@ -159,7 +161,7 @@ static void init_syscall(void)
     /*syscall[SYSCALL_SERIAL_READ]    = &;
     syscall[SYSCALL_SERIAL_WRITE]   = &;
     syscall[SYSCALL_READ_SHELL_BUFF]= &;*/
-    syscall[SYSCALL_SCREEN_CLEAR]   = (long int (*)())&screen_clear;
+    syscall[SYSCALL_SCREEN_CLEAR]   = (long int (*)())&screen_clear; 
 
     syscall[SYSCALL_GET_TIMEBASE]   = (long int (*)())&get_timer;         
     syscall[SYSCALL_GET_TICK]       = (long int (*)())&get_ticks;
