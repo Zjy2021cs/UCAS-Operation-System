@@ -132,8 +132,8 @@ uint32_t Alloc_inode();
 void write_inode_sector(uint32_t inum);
 void init_dentry(uint32_t block_num, uint32_t cur_inum, uint32_t parent_inum);
 inode_t *iget(uint32_t inum);
-inode_t *dirlookup(inode_t *dp, char *name);
-int find_path(char * path);
+inode_t *dirlookup(inode_t *dp, char *name, int type);
+int find_path(char * path, int type);
 int Alloc_fd();
 
 #endif

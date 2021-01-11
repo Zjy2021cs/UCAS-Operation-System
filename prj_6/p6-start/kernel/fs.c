@@ -142,8 +142,8 @@ void do_mkdir(uintptr_t dirname){
     // check its parent dir and return parent inode point (simple: parent = current_dir_inode?)
     inode_t *dp = current_inode;
     // read parent inode and check if the name has existed in parent dir
-    inode_t *ip = dirlookup(dp, (char *)dirname);
-    if(ip){
+    inode_t *ip = dirlookup(dp, (char *)dirname, T_DIR);
+    if(ip!=0 && ip->mode==T_DIR){
         prints("[ERROR] The dir has existed!\n");
         return;
     }
@@ -200,7 +200,7 @@ void do_rmdir(uintptr_t dirname){
     inode_t *dp = current_inode;
     // read parent inode and check if the name has existed in parent dir, if exist get its inode
     inode_t *ip;
-    if((ip = dirlookup(dp, (char *)dirname)) == 0){
+    if((ip = dirlookup(dp, (char *)dirname, T_DIR)) == 0){
         prints("[ERROR] No such directory!\n");
         return;
     }
@@ -248,7 +248,7 @@ void do_cd(uintptr_t dirname){
     inode_t *ionde_temp=current_inode;
     char *path = (char *)dirname;
     if(path[0]!='\0'){
-        if(find_path(path)==0 || current_inode->mode != T_DIR){
+        if(find_path(path,T_DIR)==0 || current_inode->mode != T_DIR){
             prints("[ERROR] PATH NOT FOUND!\n");
             current_inode = ionde_temp;
             return;
@@ -269,7 +269,7 @@ void do_ls(uintptr_t dirname){
     inode_t *ionde_temp=current_inode;
     char *path = (char *)dirname;
     if(path[0]!='\0'){
-        if(find_path(path)==0 || current_inode->mode != T_DIR){
+        if(find_path(path,T_DIR)==0 || current_inode->mode != T_DIR){
             prints("[ERROR] PATH NOT FOUND!\n");
             current_inode = ionde_temp;
             return;
@@ -302,8 +302,8 @@ void do_touch(uintptr_t filename){
     // check its parent dir and return parent inode point (simple: parent = current_dir_inode)
     inode_t *dp = current_inode;
     // read parent inode and check if the name has existed in parent dir
-    inode_t *ip = dirlookup(dp, (char *)filename);
-    if(ip){         // && ip->mode==T_FILE
+    inode_t *ip = dirlookup(dp, (char *)filename, T_FILE);
+    if(ip!=0 && ip->mode==T_FILE){        
         prints("[ERROR] The file has existed!\n");
         return;
     }
@@ -356,13 +356,12 @@ void do_cat(uintptr_t filename){
     inode_t *ionde_temp=current_inode;
     char *path = (char *)filename;
     if(path[0]!='\0'){
-        if(find_path(path)==0 || current_inode->mode != T_FILE){
+        if(find_path(path,T_FILE)==0 || current_inode->mode != T_FILE){
             prints("[ERROR] FILE NOT FOUND!\n");
             current_inode = ionde_temp;
             return;
         }
     }
-
     // read its datablock and print (now only small file!!!)
     uint32_t cnt=0;
     int off,i,j,k;
@@ -391,7 +390,7 @@ long do_file_open(uintptr_t name, int access){ // access = A_R/A_W/A_RW
     inode_t *ionde_temp=current_inode;
     char *path = (char *)name;
     if(path[0]!='\0'){
-        if(find_path(path)==0 || current_inode->mode != T_FILE){
+        if(find_path(path,T_FILE)==0 || current_inode->mode != T_FILE){
             prints("File not exist! creating...\n");
             // create a new file(touch)
             inode_t *dp = current_inode; 
@@ -499,15 +498,15 @@ long do_file_write(int fd, uintptr_t buff, int size){
         return -1;
     }
     inode_t *ionde_file = iget(FD_table[fd].inum);
-    uint32_t cur_pos =  FD_table[fd].read_point;
-    uint32_t start_pos =  FD_table[fd].read_point;
+    uint32_t cur_pos =  FD_table[fd].write_point;
+    uint32_t start_pos =  FD_table[fd].write_point;
     uint32_t start_block = cur_pos/BSIZE;
     uint32_t end_block = (cur_pos+size)/BSIZE;
     // write back to disk
     char *file_buf = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
     int i,m,cnt=0;
     for(i=0;i<(end_block-start_block+1);i++){
-        if( (start_block+i) >= (ionde_file->valid_size/BSIZE) ){ // expand the file
+        if( (start_block+i) >= (ionde_file->valid_size/BSIZE+1) ){ // expand the file
             ionde_file->direct_bnum[start_block+i]=Alloc_datablock();
             ionde_file->size += BSIZE;
         }
@@ -515,7 +514,7 @@ long do_file_write(int fd, uintptr_t buff, int size){
         if( (cur_pos%BSIZE + size - (cur_pos-start_pos)) < BSIZE)
         {
             sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
-            memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)(buff + cur_pos%BSIZE), size);
+            memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)buff, size);
             cur_pos += size;
             sbi_sd_write(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
         }else
@@ -527,7 +526,11 @@ long do_file_write(int fd, uintptr_t buff, int size){
         }
     }
     // update the file's inode
-    ionde_file->valid_size+=size;
+    if(FD_table[fd].write_point==0){
+        ionde_file->valid_size = size;
+    }else{
+        ionde_file->valid_size+=size;
+    }
     ionde_file->mtime=get_timer();
     write_inode_sector(ionde_file->inum);
     FD_table[fd].write_point=cur_pos;
@@ -652,7 +655,7 @@ inode_t *iget(uint32_t inum)
 }
 
 /* Look for a directory entry in a directory, return in-memory copy inode point */
-inode_t *dirlookup(inode_t *dp, char *name)
+inode_t *dirlookup(inode_t *dp, char *name, int type)
 {
     int off, inum;
     dentry_t *dentry = (dentry_t *)(DATA_MEM_ADDR+P2V_OFFSET);
@@ -664,7 +667,7 @@ inode_t *dirlookup(inode_t *dp, char *name)
     // in my fs, a dir only has 1 datablock
     sbi_sd_read(DATA_MEM_ADDR, 1, START_SECTOR + (dp->direct_bnum[0])*8);
     for(off = 0; off < dp->valid_size; off += DENTRY_SIZE){
-        if(strcmp(name, dentry->name) == 0){
+        if((strcmp(name, dentry->name) == 0) && (dentry->mode==type)){
             // entry matches path element
             inum = dentry->inum;
             return iget(inum);
@@ -680,7 +683,7 @@ static    char head_dir[30];
 static    char tail_dir[30];
 int find=0;
 int dep=0;
-int find_path(char * path){
+int find_path(char * path, int type){
     inode_t *inode_temp = current_inode;
     if(dep==0){
         find=0;
@@ -711,14 +714,14 @@ int find_path(char * path){
 		return 0;
 
     inode_t *ip;
-    if((ip = dirlookup(current_inode,head_dir)) != 0){
+    if((ip = dirlookup(current_inode,head_dir,type)) != 0){
         current_inode = ip;
         if(tail_dir[0]=='\0'){
             find=1;
 		    return 1;
         }
         dep++;
-        find_path(tail_dir);
+        find_path(tail_dir,type);
     }
 
     if(find==0){
