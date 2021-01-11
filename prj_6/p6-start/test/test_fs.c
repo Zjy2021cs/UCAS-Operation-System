@@ -9,7 +9,7 @@ static char buff[64];
 int main(void)
 {
     int i, j;
-    int fd = sys_fopen("1.txt", O_RDWR);
+    int fd = sys_fopen("1.txt", O_RDWR); 
 
     // write 'hello world!' * 10
     for (i = 0; i < 10; i++)
