@@ -85,5 +85,7 @@ int sys_fopen(char *name, int access);
 int sys_fread(int fd, char *buff, int size);
 int sys_fwrite(int fd, char *buff, int size);
 void sys_close(int fd);
+void sys_ln(char *source, char *link_name);
+void sys_ln_s(char *source, char *link_name);
 
 #endif

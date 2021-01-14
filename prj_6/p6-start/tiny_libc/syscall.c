@@ -207,3 +207,9 @@ int sys_fwrite(int fd, char *buff, int size){
 void sys_close(int fd){
     invoke_syscall(SYSCALL_FILE_CLOSE, fd, IGNORE, IGNORE, IGNORE);
 }
+void sys_ln(char *source, char *link_name){
+    invoke_syscall(SYSCALL_LN, (uintptr_t)source, (uintptr_t)link_name, IGNORE, IGNORE);
+}
+void sys_ln_s(char *source, char *link_name){
+    invoke_syscall(SYSCALL_LN_S, (uintptr_t)source, (uintptr_t)link_name, IGNORE, IGNORE);
+}

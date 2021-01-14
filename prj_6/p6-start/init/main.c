@@ -194,6 +194,8 @@ static void init_syscall(void)
     syscall[SYSCALL_FILE_READ]      = (long int (*)())&do_file_read;
     syscall[SYSCALL_FILE_WRITE]     = (long int (*)())&do_file_write;
     syscall[SYSCALL_FILE_CLOSE]     = (long int (*)())&do_file_close;
+    syscall[SYSCALL_LN]             = (long int (*)())&do_ln;
+    syscall[SYSCALL_LN_S]           = (long int (*)())&do_ln_s;
 }
 
 // jump from bootloader.

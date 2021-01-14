@@ -93,6 +93,7 @@ typedef struct dentry {
     uint32_t mode;                  // FILE/DIR
     uint32_t inum;                  // inode number of file/dir in this dir
     char name[MAX_FILE_NAME];
+    //uint8_t soft_link;
 }dentry_t;
 
 /* file descriptor: keeping information of open file */
@@ -121,6 +122,9 @@ long do_file_open(uintptr_t name, int access);
 long do_file_read(int fd, uintptr_t buff, int size);
 long do_file_write(int fd, uintptr_t buff, int size);
 void do_file_close(int fd);
+/* link operation */
+void do_ln(uintptr_t source, uintptr_t link_name);
+void do_ln_s(uintptr_t source, uintptr_t link_name);
 
 void clear_sector(uintptr_t mem_addr);
 void Set_block_map(uint32_t block_id);

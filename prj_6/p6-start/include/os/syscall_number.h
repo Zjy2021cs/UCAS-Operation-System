@@ -92,4 +92,7 @@
 #define SYSCALL_FILE_WRITE 51
 #define SYSCALL_FILE_CLOSE 52
 
+#define SYSCALL_LN 53
+#define SYSCALL_LN_S 54
+
 #endif

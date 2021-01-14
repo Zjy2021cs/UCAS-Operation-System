@@ -248,6 +248,38 @@ int main()
                 strcpy(_arg_buf, &shell_buff[4]);
                 sys_cat(_arg_buf);
             }
+            // create hard link
+            else if (memcmp(shell_buff, "ln", 2) == 0)
+            {
+                l = strlen(shell_buff);
+                int argc = 0;
+                static char source[SHELL_BUFF_SIZE] = {0};
+                static char link_name[SHELL_BUFF_SIZE] = {0};
+                for (i = 2; i < l; i++)
+                {
+                    if (shell_buff[i] != ' ' && shell_buff[i-1] == ' ')
+                        argc++;
+                }
+                if(argc==2){ // ln source link_name
+                    for(i = 3; i < l; i++){
+                        if (shell_buff[i] == ' ')
+                            break;
+                        else
+                            source[i-3] = shell_buff[i];
+                    }
+                    strcpy(link_name, &shell_buff[i+1]);
+                    sys_ln(source, link_name);
+                }else if(argc==3){ // ln -s source link_name
+                    for(i = 6; i < l; i++){
+                        if (shell_buff[i] == ' ')
+                            break;
+                        else
+                            source[i-6] = shell_buff[i];
+                    }
+                    strcpy(link_name, &shell_buff[i+1]);
+                    sys_ln_s(source, link_name);
+                }                
+            }
 
             printf("> root@Luoshan_OS: ");
             shell_tail = 0;

@@ -14,12 +14,11 @@ void do_mkfs(){
     superblock_t *superblock = (superblock_t *)(SB_MEM_ADDR+P2V_OFFSET);
 
     // judge if the fs exists. 
-    if(superblock->magic == MAGIC_NUM){
+    /*if(superblock->magic == MAGIC_NUM){
         prints("The FS has existed!\n");
         current_inode = (inode_t *)(INODE_MEM_ADDR+P2V_OFFSET);
         sbi_sd_read(INODE_MEM_ADDR, 1, START_SECTOR+INODE_SD_OFFSET); 
-        // how to flush? 
-    }else{
+    }else{*/
         screen_reflush();
         prints("[FS] Start initialize filesystem!\n");
 
@@ -52,8 +51,9 @@ void do_mkfs(){
         // init block map
         prints("[FS] Setting block-map...\n");
         uint8_t *blockmap = (uint8_t *)(BMAP_MEM_ADDR+P2V_OFFSET);
-        //clear_sectors();
         int i;
+        for(i=0;i<32;i++)
+            clear_sector(blockmap+SSIZE*i);
         for(i=0;i<69;i++)   // the first 69 blocks has been used..(512B+16KB+512B+256KB)/4KB = 69
             blockmap[i/8]=blockmap[i/8] | (1<<(7-(i % 8)));
 
@@ -83,15 +83,22 @@ void do_mkfs(){
         inode[0].indirect1_bnum = 0;
         inode[0].indirect2_bnum = 0;
         write_inode_sector(inode[0].inum);
+        // clear datablock: for big file 
+        uint8_t *datablock = (uint8_t *)(DATA_MEM_ADDR+P2V_OFFSET);
+        for(i=0;i<0x1000;i++){
+            clear_sector(datablock+SSIZE*i);
+        }
+        for(i=0;i<4;i++){
+            sbi_sd_write(DATA_MEM_ADDR, 0x1000, START_SECTOR+DATA_SD_OFFSET+i*0x1000);
+        }
         // init dentry of root-dir "." point to itself, ".." point to its father(also itself)
         init_dentry(inode[0].direct_bnum[0], 0, 0);
         
-        // write back to disk
         //uintptr_t sbi_sd_write(unsigned int mem_address, unsigned int num_of_blocks(512B), unsigned int block_id)
         prints("[FS] Initialize filesystem finished!\n");
         screen_reflush();
         current_inode = inode;
-    }
+    //}
 }
 
 /* print metadata info of fs */
@@ -281,7 +288,9 @@ void do_ls(uintptr_t dirname){
     dentry_t *dentry = (dentry_t *)(DATA_MEM_ADDR+P2V_OFFSET);
     int off;
     for(off = 0; off < current_inode->valid_size; off += DENTRY_SIZE){
-        prints("%s\n",dentry->name);
+        prints("%s        ",dentry->name);
+        inode_t *ip = iget(dentry->inum);
+        prints("ref: %d\n",ip->ref);
         dentry++;
     }
 
@@ -356,22 +365,35 @@ void do_cat(uintptr_t filename){
     inode_t *ionde_temp=current_inode;
     char *path = (char *)filename;
     if(path[0]!='\0'){
-        if(find_path(path,T_FILE)==0 || current_inode->mode != T_FILE){
+        if(find_path(path,T_FILE)==0){
             prints("[ERROR] FILE NOT FOUND!\n");
             current_inode = ionde_temp;
             return;
         }
     }
-    // read its datablock and print (now only small file!!!)
+    // check if the file is soft linked
+    if(current_inode->access==4){
+        sbi_sd_read(DATA_MEM_ADDR, 1, START_SECTOR + (current_inode->direct_bnum[0])*8);
+        char *source_path = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
+        prints("source_path:%s\n",source_path);
+        if(source_path[0]!='\0'){
+            if(find_path(source_path,T_FILE)==0){
+                prints("[ERROR] SOURCE_FILE NOT FOUND!\n");
+                current_inode = ionde_temp;
+                return;
+            }
+        }
+    }
+    // read its datablock and print (here only small file!!!)
     uint32_t cnt=0;
     int off,i,j,k;
+    char *file_buf = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
     for(off = 0; off < current_inode->valid_size; off += BSIZE){
         //read 1 block once
         for(i=0;i<8;i++)
             clear_sector(DATA_MEM_ADDR+P2V_OFFSET+i*SSIZE);
         j = off / BSIZE;
         sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + (current_inode->direct_bnum[j])*8);
-        char *file_buf = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
         for(k=0;cnt < current_inode->valid_size && k < BSIZE ;cnt++,k++){
             prints("%c",file_buf[k]);
         }
@@ -405,7 +427,7 @@ long do_file_open(uintptr_t name, int access){ // access = A_R/A_W/A_RW
             ip->inum = inum;
             ip->mode = T_FILE;
             ip->access = A_RW;
-            ip->ref = 0;
+            ip->ref = 1;
             ip->size = 4096;      // init 1 block for file
             ip->valid_size = 0;
             ip->mtime = get_timer();
@@ -480,19 +502,59 @@ long do_file_read(int fd, uintptr_t buff, int size){
         }else
         {   //read whole block
             sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
-            /*memcpy(buff + (cur_pos-start_pos), file_buf, BSIZE);
-            cur_pos += BSIZE;*/
             memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)(buff + (cur_pos-start_pos)), BSIZE - cur_pos%BSIZE);
             cur_pos += (BSIZE - cur_pos%BSIZE);
         }
     }
-
     FD_table[fd].read_point=cur_pos;
+    /* read a big file!!! 
+    char *file_buf = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
+    int i;
+    for(i=0;i<(end_block-start_block+1);i++){
+        if( (start_block+i) >= (ionde_file->valid_size/BSIZE +1) ){
+            prints("[ERROR] SIZE OUT OF FILE!\n");
+            return -1;
+        }
+        if((start_block+i)<8){  //use direct point
+            sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
+            memcpy((uint8_t *)(buff + cur_pos%BSIZE), (uint8_t *)(file_buf + cur_pos%BSIZE), size);
+            cur_pos += size;
+        }else if((start_block+i)<0x408){  //use indirect1 point
+            uint32_t *indirect1_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE);
+            sbi_sd_read(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect1_bnum)*8);
+            int offset_b = start_block+i-8;
+            sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + indirect1_block[offset_b]*8);
+            memcpy((uint8_t *)(buff + cur_pos%BSIZE), (uint8_t *)(file_buf + cur_pos%BSIZE), size);
+            cur_pos += size;
+        }else{
+            uint32_t *indirect1_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE);
+            sbi_sd_read(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect2_bnum)*8);
+            int offset_1 = (start_block+i-0x408)/1024;
+
+            uint32_t *indirect2_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE*2);
+            sbi_sd_read(DATA_MEM_ADDR+BSIZE*2, 8, START_SECTOR + (indirect1_block[offset_1])*8);
+            int offset_2 = (start_block+i-0x408)-1024*offset_1;
+
+            sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + indirect2_block[offset_2]*8);
+            memcpy((uint8_t *)(buff + cur_pos%BSIZE), (uint8_t *)(file_buf + cur_pos%BSIZE), size);
+            cur_pos += size;
+        }
+        
+    }
+    FD_table[fd].read_point+=BSIZE*256;*/
+
     return 1;
 }
 /* write bytes into an open file(idx=fd) */
 long do_file_write(int fd, uintptr_t buff, int size){
-    // check if the file can read
+    // check if FS exist
+    sbi_sd_read(SB_MEM_ADDR, 1, START_SECTOR);
+    superblock_t *superblock = (superblock_t *)(SB_MEM_ADDR+P2V_OFFSET);
+    if(superblock->magic != MAGIC_NUM){
+        prints("[ERROR] No File System!\n");
+        return -1;
+    }
+    // check if the file can write
     if(FD_table[fd].inum==0 || FD_table[fd].access == A_R){
         prints("[ERROR] The FILE CAN NOT WRITE!\n");
         return -1;
@@ -502,7 +564,88 @@ long do_file_write(int fd, uintptr_t buff, int size){
     uint32_t start_pos =  FD_table[fd].write_point;
     uint32_t start_block = cur_pos/BSIZE;
     uint32_t end_block = (cur_pos+size)/BSIZE;
-    // write back to disk
+    /* write back to disk(big file: most 4096MB)
+    char *file_buf = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
+    int i,m,cnt=0;
+    for(i=0;i<(end_block-start_block+1);i++){
+        if( (start_block+i) > (ionde_file->valid_size/BSIZE) ){ // expand the file
+            if((start_block+i)<8){  //use direct point
+                ionde_file->direct_bnum[start_block+i]=Alloc_datablock();
+            }else if((start_block+i)<0x408){  //use indirect1 point
+                if(ionde_file->indirect1_bnum==0){
+                    ionde_file->indirect1_bnum = Alloc_datablock();
+                }
+                uint32_t *indirect1_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE);
+                sbi_sd_read(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect1_bnum)*8);
+                int offset_b = start_block+i-8;
+                indirect1_block[offset_b]=Alloc_datablock();
+                sbi_sd_write(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect1_bnum)*8);
+            }else{
+                if(ionde_file->indirect2_bnum==0){
+                    ionde_file->indirect2_bnum = Alloc_datablock();
+                }
+                uint32_t *indirect1_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE);
+                sbi_sd_read(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect2_bnum)*8);
+                int offset_1 = (start_block+i-0x408)/1024;
+
+                if(indirect1_block[offset_1]==0){
+                    indirect1_block[offset_1] = Alloc_datablock();
+                    sbi_sd_write(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect2_bnum)*8);
+                }
+                uint32_t *indirect2_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE*2);
+                sbi_sd_read(DATA_MEM_ADDR+BSIZE*2, 8, START_SECTOR + (indirect1_block[offset_1])*8);
+                int offset_2 = (start_block+i-0x408)-1024*offset_1;
+
+                indirect2_block[offset_2]=Alloc_datablock();
+                sbi_sd_write(DATA_MEM_ADDR+BSIZE*2, 8, START_SECTOR + (indirect1_block[offset_1])*8);
+            }
+            ionde_file->size += BSIZE;
+            ionde_file->valid_size += BSIZE;  // temp for big file test!!!
+        }
+        
+        if( (cur_pos%BSIZE + size - (cur_pos-start_pos)) < BSIZE)
+        {
+            if((start_block+i)<8){  //use direct point
+                sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
+                memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)buff, size);
+                cur_pos += size;
+                sbi_sd_write(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
+            }else if((start_block+i)<0x408){  //use indirect1 point
+                uint32_t *indirect1_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE);
+                sbi_sd_read(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect1_bnum)*8);
+                int offset_b = start_block+i-8;
+                sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + indirect1_block[offset_b]*8);
+                memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)buff, size);
+                cur_pos += size;
+                sbi_sd_write(DATA_MEM_ADDR, 8, START_SECTOR + indirect1_block[offset_b]*8);
+            }else{
+                uint32_t *indirect1_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE);
+                sbi_sd_read(DATA_MEM_ADDR+BSIZE, 8, START_SECTOR + (ionde_file->indirect2_bnum)*8);
+                int offset_1 = (start_block+i-0x408)/1024;
+
+                uint32_t *indirect2_block = (uint32_t *)(DATA_MEM_ADDR+P2V_OFFSET+BSIZE*2);
+                sbi_sd_read(DATA_MEM_ADDR+BSIZE*2, 8, START_SECTOR + (indirect1_block[offset_1])*8);
+                int offset_2 = (start_block+i-0x408)-1024*offset_1;
+
+                sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + indirect2_block[offset_2]*8);
+                memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)buff, size);
+                cur_pos += size;
+                sbi_sd_write(DATA_MEM_ADDR, 8, START_SECTOR + indirect2_block[offset_2]*8);
+            }
+        }else
+        {
+            sbi_sd_read(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8);
+            memcpy((uint8_t *)(file_buf + cur_pos%BSIZE), (uint8_t *)(buff + (cur_pos-start_pos)), BSIZE - cur_pos%BSIZE);
+            cur_pos += (BSIZE - cur_pos%BSIZE);
+            sbi_sd_write(DATA_MEM_ADDR, 8, START_SECTOR + (ionde_file->direct_bnum[start_block+i])*8); 
+        }
+    }
+    // update the file's inode
+    ionde_file->mtime=get_timer();
+    write_inode_sector(ionde_file->inum);
+    FD_table[fd].write_point+=BSIZE;  // temp for big file!!!*/
+
+    /* write back to disk(for small file!!)*/
     char *file_buf = (char *)(DATA_MEM_ADDR+P2V_OFFSET);
     int i,m,cnt=0;
     for(i=0;i<(end_block-start_block+1);i++){
@@ -533,8 +676,8 @@ long do_file_write(int fd, uintptr_t buff, int size){
     }
     ionde_file->mtime=get_timer();
     write_inode_sector(ionde_file->inum);
-    FD_table[fd].write_point=cur_pos;
-    return 1;
+    FD_table[fd].write_point=cur_pos; 
+    return start_block;
 }
 void do_file_close(int fd){
     uint32_t inum = FD_table[fd].inum;
@@ -545,6 +688,115 @@ void do_file_close(int fd){
     FD_table[fd].access = 0;
 }
 
+//link operation===============================================================================
+/* create a hard link */
+void do_ln(uintptr_t source, uintptr_t link_name){
+    // look up the source_path and find the source_file's inum
+    inode_t *ionde_temp=current_inode;
+    char *path = (char *)source;
+    if(path[0]!='\0'){
+        if(find_path(path,T_FILE)==0){
+            prints("[ERROR] FILE NOT FOUND!\n");
+            current_inode = ionde_temp;
+            return;
+        }
+    }
+    current_inode->ref++;
+    prints("[SYS] source_ref=%d\n",current_inode->ref);
+    uint32_t inum = current_inode->inum;
+    current_inode = ionde_temp;
+    // create link_file's dentry with link_name and share the inum
+    inode_t *dp = current_inode;
+        // read parent inode and check if the name has existed in parent dir
+    inode_t *ip = dirlookup(dp, (char *)link_name, T_FILE);
+    if(ip){        
+        prints("[ERROR] The file has existed!\n");
+        return;
+    }
+        // add dentry in its parent dir
+    sbi_sd_read(DATA_MEM_ADDR, 1, START_SECTOR + (dp->direct_bnum[0])*8);
+    dentry_t *dentry = (dentry_t *)(DATA_MEM_ADDR+P2V_OFFSET+dp->valid_size);
+    dentry->mode = T_FILE;
+    dentry->inum = inum;
+    kstrcpy(dentry->name, (char *)link_name);
+    sbi_sd_write(DATA_MEM_ADDR, 1, START_SECTOR + (dp->direct_bnum[0])*8);
+        // update parent dir's time and link
+    dp->ref++; 
+    dp->valid_size += DENTRY_SIZE;
+    dp->mtime = get_timer();
+    write_inode_sector(dp->inum);
+    //
+    prints("[SYS] Create a link file! inum=%d\n",inum);
+    prints("[SYS] parent_ref=%d\n",dp->ref);
+}
+/* create a soft link for file/dir */
+void do_ln_s(uintptr_t source, uintptr_t link_name){
+    /* look up the source_path and find the source_file*/
+    inode_t *ionde_temp=current_inode;
+    char path[32];
+    kstrcpy(path, (char *)source);
+    if(path[0]!='\0'){
+        if(find_path(path,T_FILE)==0){
+            prints("[ERROR] FILE NOT FOUND!\n");
+            current_inode = ionde_temp;
+            return;
+        }
+    }
+    // update its inode
+    current_inode->mtime=get_timer();
+    write_inode_sector(current_inode->inum);
+    inode_t *inode_source = current_inode;
+    current_inode = ionde_temp;
+    // create link_file's dentry with link_name
+    inode_t *dp = current_inode;
+        // alloc an inode for file
+    uint32_t inum;
+    if((inum = Alloc_inode()) == 0){
+        prints("[ERROR] Inode is full!\n");
+        return;
+    }
+    inode_t *ip = iget(inum);
+    // init inode
+    ip->inum = inum;
+    ip->mode = inode_source->mode;
+    ip->mtime = get_timer();
+    ip->access = 4;  // mask for soft link
+    ip->ref = 1;
+    ip->size = inode_source->size;
+    ip->valid_size = inode_source->valid_size;
+    ip->mtime = get_timer();
+    ip->direct_bnum[0] = Alloc_datablock(); 
+    for(int i=1;i<NDIRECT;i++)
+        ip->direct_bnum[i] = 0;
+    ip->indirect1_bnum = 0;
+    ip->indirect2_bnum = 0;
+    write_inode_sector(ip->inum);
+        // add dentry in its parent dir
+    sbi_sd_read(DATA_MEM_ADDR, 1, START_SECTOR + (dp->direct_bnum[0])*8);
+    dentry_t *dentry = (dentry_t *)(DATA_MEM_ADDR+P2V_OFFSET+dp->valid_size);
+    dentry->mode = inode_source->mode;
+    dentry->inum = ip->inum;
+    kstrcpy(dentry->name, (char *)link_name);
+    // dentry->soft_link = 1;
+    sbi_sd_write(DATA_MEM_ADDR, 1, START_SECTOR + (dp->direct_bnum[0])*8);
+    // update parent dir's time and link
+    dp->ref++; 
+    dp->valid_size += DENTRY_SIZE;
+    dp->mtime = get_timer();
+    write_inode_sector(dp->inum);
+    // write source name in its datablock
+    sbi_sd_read(DATA_MEM_ADDR, 1, START_SECTOR + (ip->direct_bnum[0])*8);
+    uint8_t *source_path = (uint8_t *)(DATA_MEM_ADDR+P2V_OFFSET);
+    char *temp = (char *)source;
+    if(temp[0] != '/'){
+        source_path[0] = (uint8_t)'/';
+        kstrcpy(&source_path[1], (char *)source);
+    }else{
+        kstrcpy(source_path, (char *)source);
+    }
+    sbi_sd_write(DATA_MEM_ADDR, 1, START_SECTOR + (ip->direct_bnum[0])*8);
+    prints("[SYS] Create a s-link file! inum=%d\n",inum);
+}
 //=============================================================================================
 /* clear one sector in mem */
 void clear_sector(uintptr_t mem_addr){
